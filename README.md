@@ -1,3 +1,31 @@
+# 光线工场 shape-reviewer-v1
+----
+## 安装
+
+    npx create-react-app shape-reviewer-v1
+    cd shape-reviewer-v1
+    
+
+## 安装 gh-pages
+
+package.json中加入：
+
+    "homepage": "https://wsd1.github.io/shape-reviewer-v1",
+
+script字段加入：
+
+    "scripts": {
+      ...
+      "predeploy": "npm run build",
+      "deploy": "gh-pages -d build"
+    },
+
+
+
+npm install gh-pages --save-dev
+
+
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
