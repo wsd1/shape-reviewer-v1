@@ -96,7 +96,7 @@ function LocalList({openDoc}) {
     const headr = <Tooltip placement="bottom" title="打开DXF图纸">
         <div className="upload_area" onClick={uploadSelect}>
             <PlusOutlined className="upload_plus" />
-            <input ref={fileInputRef} type="file" hidden={true} accept=".dxf" id="icon-button-file" onChange={e => handleFileSelectionChange(e.target.files[0], ()=>history.push("/editor"))} />
+            <input ref={fileInputRef} type="file" hidden={true} accept=".dxf" id="icon-button-file" onChange={e => handleFileSelectionChange(e.target.files[0], ()=>history.push(process.env.PUBLIC_URL + "/editor"))} />
         </div>
     </Tooltip>
 

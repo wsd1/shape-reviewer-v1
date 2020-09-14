@@ -10,7 +10,7 @@ import {
 import ViewEditor from './views/editor'
 import ViewMain from './views/main'
 function App() {
-  console.log(process.env.PUBLIC_URL);
+  //console.log(process.env.PUBLIC_URL);
   
   return (
     <div>
