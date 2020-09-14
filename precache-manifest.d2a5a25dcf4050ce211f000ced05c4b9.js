@@ -1,6 +1,6 @@
 self.__precacheManifest = (self.__precacheManifest || []).concat([
   {
-    "revision": "f18c108bf43f2d58fdda97187d3696bd",
+    "revision": "064be3146e890186ed021fc782b5f758",
     "url": "/shape-reviewer-v1/index.html"
   },
   {
@@ -8,7 +8,7 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/shape-reviewer-v1/static/css/2.d4e7eff5.chunk.css"
   },
   {
-    "revision": "529cd9786bbd2f467756",
+    "revision": "9d351631518323f9cbf0",
     "url": "/shape-reviewer-v1/static/css/main.803f9516.chunk.css"
   },
   {
@@ -20,8 +20,8 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/shape-reviewer-v1/static/js/2.4cff3d64.chunk.js.LICENSE.txt"
   },
   {
-    "revision": "529cd9786bbd2f467756",
-    "url": "/shape-reviewer-v1/static/js/main.39150432.chunk.js"
+    "revision": "9d351631518323f9cbf0",
+    "url": "/shape-reviewer-v1/static/js/main.30e4fd78.chunk.js"
   },
   {
     "revision": "298dbafb79d8ad0ff791",
