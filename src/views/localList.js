@@ -129,7 +129,7 @@ function LocalList({openDoc}) {
                             
 
                             <Space align="start" size={40} >
-                                <a href={'/#'} onClick={()=>openFromCache(item.fileName, ()=>history.push("/editor"))}>
+                                <a href={'/#'} onClick={()=>openFromCache(item.fileName, ()=>history.push(process.env.PUBLIC_URL + "/editor"))}>
                                     <img className="thumbnail-img"
                                         width={280}
                                         alt="thumbnail"
