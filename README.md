@@ -257,6 +257,22 @@ github上建立同名repo之后，commit push一下。
 
 然后，打开 https://wsd1.github.io/shape-reviewer-v1
 
+
+在使用 router时定义的路径，可能与gh-page上部署的路径正好不一样，上面可以看到 域名后面跟的是 repo名字。
+
+所以，app.js中定义路由时，也需要做相应修改：
+
+    <Route path={process.env.PUBLIC_URL + "/"} exact component={ViewMain} />
+    <Route path={process.env.PUBLIC_URL + "/editor"} component={ViewEditor} />
+
+这样就可以适应 本地调试 和 gh-page了。
+
+参考了 https://github.com/facebook/create-react-app/issues/1765
+
+
+
+
+
 ----
 以下是 CRA 原工具 README
 
