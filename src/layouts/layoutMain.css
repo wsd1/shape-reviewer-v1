@@ -1,0 +1,56 @@
+
+
+.logo {
+  width: 31px;
+  height: 31px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 16px 24px 16px 0;
+  float: left;
+}
+
+
+.rightIconButton {
+  float: right;
+}
+
+
+.site-content {
+  min-height: 800px;
+  max-height: 720px;
+
+  padding: '0 50px';
+  background: #fafafa;
+}
+
+
+
+.content-sign-container-left {
+  text-align: center;
+  height: 42px;
+  background: #f0f0f0;
+  border-right: 2px solid #fafafa;
+}
+.content-sign-container-right {
+  text-align: center;
+  height: 42px;
+  background: #f0f0f0;
+  border-left: 2px solid #fafafa;
+}
+
+.content-sign {
+  display: block;
+  line-height: 50px;
+}
+
+.content-local {
+  max-height: 760px;
+  overflow: scroll;
+
+}
+
+
+.content-cloud {
+  
+  overflow: scroll;
+
+}
