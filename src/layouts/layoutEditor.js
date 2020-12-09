@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 
 
-import 'antd/dist/antd.css';
+import 'antd/dist/antd.less';
 import "./layoutEditor.css";
 
 import { //Layout, 
-    Drawer, Button, Badge, Progress, PageHeader } from 'antd';
+  Drawer, Button, Badge, Progress, PageHeader, Tabs
+} from 'antd';
 import { BarsOutlined, RightOutlined } from '@ant-design/icons';
 
+const { TabPane } = Tabs;
 
 //const { Header, Content, Footer } = Layout;
 
 
-function LayoutEditor({ goBack, title, subTitle, drawerTitle, issueNum, progress, mainView, sideView, utilView }) {
+function LayoutEditor({ goBack, title, subTitle, issueNum, progress, mainView, layerBorderView, polylineView, utilView }) {
 
   let [stateDrawVisible, setStateDrawVisible] = useState(false);
 
@@ -25,8 +27,8 @@ function LayoutEditor({ goBack, title, subTitle, drawerTitle, issueNum, progress
     {isProcessing && <Progress percent={progress} />}
     <div className="main-view-and-drawer">
       {mainView}
-      <Drawer
-        title={drawerTitle}
+      <Drawer 
+        title={'控制面板'}
         closeIcon={<RightOutlined />}
         onClose={() => setStateDrawVisible(false)}
         visible={stateDrawVisible}
@@ -35,10 +37,22 @@ function LayoutEditor({ goBack, title, subTitle, drawerTitle, issueNum, progress
         closable={true}
         zIndex={1}
         getContainer={false}
-        style={{ position: 'absolute' }}
-        width={300}
+        style={{ position: 'absolute' }}  //这个使得drawer在navBar下面
+        headerStyle={{position: 'absolute', visibility:'hidden'}} //这个用来消除drawer的header
+        bodyStyle={{paddingTop: 5}}  //这个用来消除body的上面
+        width={480}
       >
-        {sideView}
+
+        <Tabs tabPosition={'top'}>
+          <TabPane tab="层与边框" key="1">
+            {layerBorderView}
+          </TabPane>
+          <TabPane tab="线条" key="2">
+            {polylineView}
+          </TabPane>
+        </Tabs>
+
+
       </Drawer>
     </div>
   </>;
@@ -52,7 +66,7 @@ function LayoutEditor({ goBack, title, subTitle, drawerTitle, issueNum, progress
         title={title}
         subTitle={subTitle}
         extra={<Badge count={issueNum}>
-          <Button shape="circle" icon={<BarsOutlined />} onClick={() => setStateDrawVisible(s => !s)} />
+          <Button shape="circle" icon={stateDrawVisible?<RightOutlined />:<BarsOutlined />} onClick={() => setStateDrawVisible(s => !s)} />
         </Badge>}
       >
       </PageHeader>

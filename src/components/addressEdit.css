@@ -1,0 +1,17 @@
+
+.address-container {
+    padding: 10px;
+    font-size: 18px;
+    border: 8px dashed rgba(28, 110, 164, 0.68);
+    border-radius: 10px;
+    text-align: center;
+    margin-top: 20px;
+
+    cursor: pointer;
+    opacity:0.8;
+}
+
+
+.address-container:hover {
+    opacity:1;
+  }

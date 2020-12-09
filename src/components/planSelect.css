@@ -1,0 +1,19 @@
+
+.step-container-left {
+    margin-top: 20px;
+    margin-left: 40px;
+}
+
+.step-container-center {
+    margin: 20px auto;
+}
+
+.tree-selection-container {
+    height: 472px;
+    overflow: scroll;
+    border: 1px solid rgba(28, 110, 164, 0.68);
+    border-radius: 10px;
+    margin-right: 20px;
+}
+
+

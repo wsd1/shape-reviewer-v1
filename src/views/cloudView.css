@@ -1,0 +1,10 @@
+.cloud-tabs-container {
+  width: 400px;
+  margin: 20px auto;
+  background-color: white;
+  border-radius: 10px;
+}
+
+.cloud-tabs {
+  padding: 20px;
+}

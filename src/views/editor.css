@@ -7,6 +7,55 @@
   stroke: "black";
 }
 
+.svgPath-focus {
+  stroke: #eccc68;
+  stroke-width: 0.5;
+  /*stroke-dasharray: 10,1;
+  animation: fat .5s infinite linear alternate;*/
+  stroke-dasharray: 5, 1;
+  animation: dash 1s linear infinite alternate;
+}
+
+@keyframes dash {
+  from {
+    stroke-width: 0.2;
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-width: 1;
+    stroke-dashoffset: 12;
+  }
+}
+
+@keyframes spin {
+  from {transform:rotate(0deg);}
+  to {transform:rotate(360deg);}
+}
+
+@keyframes fat {
+  from {stroke-width: 0.2;}
+  to {stroke-width: 1;}
+}
+
+@keyframes fadeIn {
+  0% {
+      opacity: .35;
+  }
+
+  50% {
+      opacity: .5;
+  }
+
+  75% {
+      opacity: .75;
+  }
+
+  100% {
+      opacity: .25;
+  }
+}
+
+
 .svgPath:hover {
   stroke: #eccc68;
   stroke-width: 0.5;

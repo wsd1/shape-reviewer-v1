@@ -1,66 +1,38 @@
 import React from 'react';
 
 
-import 'antd/dist/antd.css';
+import 'antd/dist/antd.less';
 import "./layoutMain.css";
 
 import { Layout, Row, Col } from 'antd';
-import { CloudOutlined, LaptopOutlined } from '@ant-design/icons';
-
-
 
 const { Header, Content, Footer } = Layout;
 
-
-
-function LayoutMain({ loginSpot, localView, cloudView, utilView }) {
+function LayoutMain({ loginSpot, localView, cloudView, historyOrderView, embeddedElements }) {
 
   return (
     <Layout className="layout">
-      <Header>
+      <Header className="layout-header">
         <div className="logo" />
-
-
         <div className="rightIconButton">
           {loginSpot}
         </div>
-
       </Header>
 
-
-
-      <Content className="site-content">
-
-        <Row>
-          <Col span={12}>
-            <div className="content-sign-container-left">
-              <LaptopOutlined className="content-sign" style={{fontSize: "30px"}}/>
-            </div>
-
-            <div className="content-local">
+      <Content className="layout-content">
+        <Row className="row-content">
+          <Col span={4}></Col>
+          <Col span={12} className="content-local">
             {localView}
-            </div>
-
-
           </Col>
-
-          <Col span={12}>
-
-            <div className="content-sign-container-right">
-              <CloudOutlined className="content-sign" style={{fontSize: "30px"}}/>
-            </div>
-
-
-            <div className="content-cloud">
+          <Col span={6} className="content-cloud">
             {cloudView}
-            </div>
-
+            {historyOrderView}
           </Col>
         </Row>
 
-        {utilView}
+        {embeddedElements}
       </Content>
-
 
       <Footer style={{ textAlign: 'center' }}>光线工场 ©2020 Created by ucast</Footer>
     </Layout>

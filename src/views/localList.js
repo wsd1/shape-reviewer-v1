@@ -1,43 +1,43 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useHistory } from "react-router-dom";
 
-import { List, Popconfirm, Space, Tooltip, Button, Badge, Spin } from 'antd';
-import { MessageOutlined, LikeOutlined, StarOutlined, 
-        PlusOutlined, DeleteOutlined, ArrowRightOutlined,
-        BugOutlined } from '@ant-design/icons';
+import { Modal, Space, Button, Row, Tooltip, message } from 'antd';
+import {
+    PlusOutlined, DeleteOutlined, ShoppingCartOutlined, ClockCircleOutlined,
+    ExclamationCircleOutlined, PlusSquareOutlined, WarningTwoTone
+} from '@ant-design/icons';
+import PlanSelect from '../components/planSelect'
 
 
-
-import 'antd/dist/antd.css';
+import 'antd/dist/antd.less';
 import "./localList.css";
 
 import localforage from 'localforage';
 import LZString from 'lz-string'
 
 import _define from '../define'
-import { prettyFileSize } from '../lib/util'
+import {
+    prettyFileSize,
+    humanRelativeISODate,
+    humanISODate,
+    //stringWidth 
+} from '../lib/util'
+
+
 
 import docPath from '../doc/sketchCheckProcess.md'
 
 
-var localForage = localforage.createInstance({
+const localForage = localforage.createInstance({
     name: _define.STORE_KEY
 });
 
-const IconText = ({ icon, text }) => (
-    <Space>
-        {React.createElement(icon)}
-        {text}
-    </Space>
-);
 
-
-function LocalList({openDoc}) {
+function LocalList({ openHelp, isLogin }) {
 
     const history = useHistory();
-    
-    const [cacheList, setCacheList] = useState(null);
 
+    const [cacheList, setCacheList] = useState(null);
 
     const fileInputRef = useRef();
     const uploadSelect = () => {
@@ -61,8 +61,7 @@ function LocalList({openDoc}) {
     }
 
     const openFromCache = (fileName, cb) => {
-        //alert(`${fileName}`);
-        localForage.setItem(_define.KEY_TEMP_FILE, { name: fileName}, cb);
+        localForage.setItem(_define.KEY_TEMP_FILE, { name: fileName }, cb);
     }
 
     const removeFromCache = (fileName) => {
@@ -73,15 +72,24 @@ function LocalList({openDoc}) {
     }
 
 
+    //plan选择器
+    let [statePlan, setStatePlan] = useState(null);
+    const showPlan = ({ fileName, fileSize, thumbUrl, bbox }) => {
+        setStatePlan({ visible: true, pack: { fileName, fileSize, thumbUrl, bbox }, handleCancel: () => setStatePlan(_state => ({ ..._state, visible: false })) });
+    }
+
+
+
+
     useEffect(() => {
         let fileSet = {};
         localForage.iterate((value, key, iterationNumber) => {
             if (key.startsWith(_define.CACHE_PREFIX)) {
-                let {_pack} = value; //{_pack, config, editor}
-                let { fileName, fileSize, fileHash, dateModify, dateUpload, thumbnail } = _pack;
+                let { _pack } = value; //{_pack, config, editor}
+                let { fileName, fileSize, fileHash, dateModify, dateUpload, thumbnail, bbox } = _pack;
                 //console.log(hugeJson);
                 let thumbUrl = thumbnail ? URL.createObjectURL(new Blob([thumbnail], { type: 'image/svg+xml' })) : null;
-                fileSet[fileName] = { fileName, fileSize, fileHash, dateModify, dateUpload, thumbUrl };
+                fileSet[fileName] = { fileName, fileSize, fileHash, dateModify, dateUpload, thumbUrl, bbox };
             }
         },
             () => {
@@ -93,82 +101,88 @@ function LocalList({openDoc}) {
             })
     }, []);
 
-    const headr = <Tooltip placement="bottom" title="打开DXF图纸">
-        <div className="upload_area" onClick={uploadSelect}>
-            <PlusOutlined className="upload_plus" />
-            <input ref={fileInputRef} type="file" hidden={true} accept=".dxf" id="icon-button-file" onChange={e => handleFileSelectionChange(e.target.files[0], ()=>history.push(process.env.PUBLIC_URL + "/editor"))} />
-        </div>
-    </Tooltip>
 
-    if(!cacheList)
-        return <Spin style={{marginTop: "200px", display: "block"}} size="large" />
-    else
-        return (
-            <>
-                <List
-                    itemLayout="vertical"
-                    size="large"
-                    dataSource={cacheList}
-                    header={headr}
-                    footer={<div>-- 底线在此 --</div>}
-                    renderItem={item => (
-                        <List.Item
-                            key={item.fileName}
-                            actions={[
-                                <IconText icon={StarOutlined} text="156" key="list-vertical-star-o" />,
-                                <IconText icon={LikeOutlined} text="156" key="list-vertical-like-o" />,
-                                <IconText icon={MessageOutlined} text="2" key="list-vertical-message" />,
-                            ]}
-                            extra={null}>
 
-                            <List.Item.Meta
-                                title={null}
-                                description={null} />
 
-                            <h2>{`${item.fileName}(${prettyFileSize(item.fileSize)})`}</h2>
-                            
+    function rowsView(cacheItems) {
+        return <div className="row-container">
+            <div>
+                <PlanSelect {...statePlan} />
 
-                            <Space align="start" size={40} >
-                                <a href={'/#'} onClick={()=>openFromCache(item.fileName, ()=>history.push(process.env.PUBLIC_URL + "/editor"))}>
-                                    <img className="thumbnail-img"
-                                        width={280}
-                                        alt="thumbnail"
-                                        src={item.thumbUrl} />
-                                </a>
-                                <div>
-                                    <Space direction="vertical">
-                                        <p>{`hash: ${item.fileHash}`}</p>
-                                        <p>{`上传: ${item.dateUpload}`}</p>
-                                        <p>{`修改: ${item.dateModify}`}</p>
-                                        <Space>
-                                            <Badge dot ><BugOutlined /> 图纸尚未处理完毕</Badge>
+                <Row className="upload_area_header_row" justify="space-around" align="middle" onClick={uploadSelect}>
+                    <Space align="center">
+                        <input ref={fileInputRef} type="file" hidden={true} accept=".dxf" id="icon-button-file" onChange={e => handleFileSelectionChange(e.target.files[0], () => history.push(process.env.PUBLIC_URL + "/editor"))} />
+                        <PlusOutlined className="upload_plus_icon" />
+                        <h2 style={{ margin: 0 }}>添加DXF图纸</h2>
+                    </Space>
+                </Row>
+                {cacheItems.map(({ fileName, fileSize, thumbUrl, fileHash, dateUpload, dateModify, bbox }) => {
+                    return (
+                        <Row className="row-card" style={{ marginBottom: 20 }} key={fileName} justify="start" align="middle" >
+                            <Space>
+                                <div className="thumbnail-container" onClick={() => openFromCache(fileName, () => history.push(process.env.PUBLIC_URL + "/editor"))}>
+                                    <img className="thumbnail-img" width={280} alt="thumbnail" src={thumbUrl} />
+                                </div>
 
-                                            <Button shape="circle" size="small" onClick={() => openDoc(docPath)}> ? </Button>
 
-                                        </Space>
-                                        <Space style={{marginTop: "20px"}}>
-                                            <Popconfirm title="确定删除 ?" okText="Yes" cancelText="No" onConfirm={()=>{removeFromCache(item.fileName)}}>
-                                                <Button danger><DeleteOutlined />删除</Button>
-                                            </Popconfirm>
-                                            <Button><ArrowRightOutlined />进阶</Button>
+                                <Space direction="vertical">
 
-                                        </Space>
+                                    <h2>{`${fileName}(${prettyFileSize(fileSize)})`}</h2>
+                                    <Space align="center">
+                                        <ClockCircleOutlined />
+                                        {`修改于 ${humanISODate(dateModify)}  (${humanRelativeISODate(dateModify)})`}
                                     </Space>
 
-                                </div>
+                                    {/*<p>{`创建于 ${humanISODate(dateUpload)}  (${humanRelativeISODate(dateUpload)})`}</p>*/}
+                                    <Space align="center">
+                                        <WarningTwoTone twoToneColor="#f5222d" />
+                                        尚有问题未处理<Button type="link"
+                                            //shape="circle"
+                                            size="small" onClick={() => openHelp(docPath)}> 详情 </Button>
+                                    </Space>
+
+
+                                    <Space style={{ marginTop: "10px" }}>
+                                        <Button danger onClick={() => {
+                                            Modal.confirm({
+                                                centered: true,
+                                                icon: <ExclamationCircleOutlined />, maskClosable: true,
+                                                title: '确定删除 ?', okText: '确认',
+                                                onOk: () => { removeFromCache(fileName) }
+                                            })
+                                        }}><DeleteOutlined />删除</Button>
+                                        <Button onClick={() => showPlan({ fileName, fileSize, thumbUrl, bbox })}><PlusSquareOutlined />配置板材</Button>
+                                        {isLogin ?
+                                            <Button type="primary" onClick={() => {
+                                                message.info('加入购物车 完成 ~ ');
+                                            }}><ShoppingCartOutlined />加购物车</Button> :
+                                            <Tooltip title="需要登录">
+                                                <Button type="primary" disabled><ShoppingCartOutlined />加购物车</Button>
+                                            </Tooltip>
+                                        }
+
+                                    </Space>
+                                </Space>
+
                             </Space>
-                            <div className="list-item-left">
-                            </div>
-                            <div className="list-item-right">
-                            </div>
+
+                        </Row>)
+                })}
+            </div>
+        </div>
+    }
+
+    return !!cacheList && cacheList.length > 0 ?
+        rowsView(cacheList) :
+        <Row justify="space-around" align="middle" style={{ height: "inherit" }}>
+            <div className="upload_area_empty" onClick={uploadSelect}>
+                <PlusOutlined className="upload_plus_icon" />
+                <h3>打开DXF图纸</h3>
+                <input ref={fileInputRef} type="file" hidden={true} accept=".dxf" id="icon-button-file" onChange={e => handleFileSelectionChange(e.target.files[0], () => history.push(process.env.PUBLIC_URL + "/editor"))} />
+            </div>
+        </Row>
 
 
-
-                        </List.Item>
-                    )}
-                />
-            </>
-        );
 }
 
 export default LocalList;

@@ -18,7 +18,7 @@ div.main-view-and-drawer-mask {
 
 .main-view-and-drawer {
   min-height: 600px;
-  max-height: 800px;
+  max-height: 1200px;
   position: relative;
   overflow: hidden;
 

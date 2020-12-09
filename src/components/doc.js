@@ -3,7 +3,7 @@ import Markdown from 'markdown-to-jsx';
 import frontMatter from 'front-matter';
 
 import { Modal, Image, Spin } from 'antd';
-import 'antd/dist/antd.css';
+import 'antd/dist/antd.less';
 //import "./doc.css";
 
 import config from '../config'
@@ -14,7 +14,7 @@ function ComponentImage({ alt, src }) {
     return <img alt={alt} src={src} />
 else
     return <Image //width={500}
-        src={config.DOCUMENT.imgSource + src}
+        src={config.SOURCE.imgSource + src}
         alt={alt}
     />
 }

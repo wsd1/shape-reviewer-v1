@@ -1,6 +1,7 @@
 
 
 const _define = {
+    USER_KEY: "user",
 
     STORE_KEY: "shape-reviewer-v1",
 
@@ -13,6 +14,7 @@ const _define = {
         SELECT: 'SELECT',
         DELETE: 'DELETE',
         BREAK: 'BREAK',
+        PATCH: 'PATCH',
         SAVE: 'SAVE',
         LOAD: 'LOAD',
         UNDO: 'UNDO',

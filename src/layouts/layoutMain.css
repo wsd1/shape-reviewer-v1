@@ -14,43 +14,34 @@
 }
 
 
-.site-content {
-  min-height: 800px;
-  max-height: 720px;
-
-  padding: '0 50px';
-  background: #fafafa;
+.layout {
+  background-image: url(../laserDXF.jpg);
+  background-repeat:no-repeat;
+  background-position:center;
 }
 
-
-
-.content-sign-container-left {
-  text-align: center;
-  height: 42px;
-  background: #f0f0f0;
-  border-right: 2px solid #fafafa;
-}
-.content-sign-container-right {
-  text-align: center;
-  height: 42px;
-  background: #f0f0f0;
-  border-left: 2px solid #fafafa;
+.layout-header {
+  background-color: rgba(18,18,18, 1.0);
 }
 
-.content-sign {
-  display: block;
-  line-height: 50px;
+.layout-content {
+  /* 视口总高减去 导航 和 页脚 */
+  height: calc(100vh -  64px - 68px);
 }
+
+.row-content {
+  height: inherit;
+  background-color: rgba(240,240,240, 0.85);
+}
+
 
 .content-local {
-  max-height: 760px;
+  height: inherit;
   overflow: scroll;
-
 }
 
 
 .content-cloud {
-  
+  height: inherit;
   overflow: scroll;
-
 }

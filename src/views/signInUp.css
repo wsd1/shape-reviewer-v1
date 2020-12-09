@@ -1,0 +1,16 @@
+.form-tabs {
+  width: 240px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: -60px;
+}
+
+.login-form-forgot {
+  float: right;
+}
+.ant-col-rtl .login-form-forgot {
+  float: left;
+}
+.form-button {
+  width: 100%;
+}

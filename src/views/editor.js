@@ -16,9 +16,10 @@ import config from '../config'
 import _define from '../define'
 import {
   bboxPretty,
-  verticesBbox,
-  mirrorVertical,
-  prettyFileSize
+  //verticesBbox,
+  //mirrorVertical,
+  prettyFileSize,
+  getPathFromPublic
 } from '../lib/util'
 
 
@@ -26,16 +27,17 @@ import useSize from '../hooks/useSize'
 
 import SvgPanZoom from '../components/svgPanZoom'
 import Doc from '../components/doc'
+import SelectedList from '../components/selectedList'
 
 
-import 'antd/dist/antd.css';
+import 'antd/dist/antd.less';
 import './editor.css'
 
 import LayoutEditor from '../layouts/layoutEditor'
 
 
-import toolsHelpPath from '../doc/editorTools.md'
-import issueHelpPath from '../doc/editorIssues.md'
+const toolsHelpPath = getPathFromPublic("editorTools.md");
+const issueHelpPath = getPathFromPublic("editorIssues.md");
 
 
 const layerId2NameDict = {
@@ -68,8 +70,7 @@ const prettyViewboxStr = bbox => {
 
 //import Worker from 'worker-loader!./blueprint.worker.js';
 //const createWorker = () => new Worker();
-const getPathFromPublic = path => `${process.env.PUBLIC_URL}/${path}`;
-const workerPath = getPathFromPublic('shape.worker.js');
+const workerPath = getPathFromPublic("shape.worker.js");
 const createWorker = () => new Worker(workerPath); //,{ type: 'module' }
 
 const createSvgURL = graphsThumbnail => URL.createObjectURL(new Blob([graphsThumbnail], { type: 'image/svg+xml' }));
@@ -86,8 +87,17 @@ function ViewEditor() {
 
 
   //svgPanZoom的 value和tool
-  const [panZoomTool, setPanZoomTool] = useState(TOOL_AUTO);
-  const [panZoomValue, setPanZoomValue] = useState(INITIAL_VALUE);
+  const [editorTool, setEditorTool] = useState({ toolValue: TOOL_AUTO, isSaved: true, canUndo: false, canRedo: false }); //
+  const [editorValue, setEditorValue] = useState(INITIAL_VALUE);
+
+  const setPanZoomTool = useCallback(
+    (value) => {
+      setEditorTool(old => {
+        return Object.assign({}, old, { toolValue: value })
+      })
+    },
+    [setEditorTool],
+  )
 
 
 
@@ -140,21 +150,23 @@ function ViewEditor() {
       }
     },
 
-    //如果内部传递过来 editor那么就更新到编辑器上
+    //如果内部传递过来 panZoomParams 那么就更新到编辑器上
     editor: {
-      setState: setPanZoomValue,
+      //setState: setEditorValue,
       process: (handle, { editor }) => {
-        if (!!editor)
-          handle.setState(editorOld => {
-            //console.log('editorOld');
-            //console.dir(editorOld);
-            //console.log('editorNew');
-            //console.dir(editor);
-            //let {version, a,b,c,d,e,f, SVGHeight, SVGWidth, SVGMinX, SVGMinY, viewerHeight, viewerWidth} = editor;
-            return editor;
-          });
-        //console.log(`REMOVEME worker set progress:`); 
-        //console.dir(progress);
+        if(!editor)return;
+        let { svgPanZoomValue, isSaved, canUndo, canRedo } = editor;
+
+        //console.log(svgPanZoomValue);
+
+        if (!!svgPanZoomValue)
+          setEditorValue(svgPanZoomValue);
+
+        //按钮状态
+        setEditorTool(old => {
+          return Object.assign({}, old, { isSaved, canUndo, canRedo })
+        })
+
       }
     },
 
@@ -187,7 +199,7 @@ function ViewEditor() {
 
       }
     },
-  }), [setStateWorkerInfo, setStateProgress, setStateGraphs, setPanZoomValue]);
+  }), [setStateWorkerInfo, setStateProgress, setStateGraphs, setEditorValue, setEditorTool]);
 
   //worker 启动  ！！！！
   const { command: workerCommand } = useShapeWorker(createWorker, workerStateHandles);
@@ -201,17 +213,42 @@ function ViewEditor() {
   const graphRefsFnGen = id => {
     return (el) => { graphRefs.current[id] = el }
   };
-  //放弃 通过 ref设定隐藏的方式 ，后面采用 react的通用方式
-  glbTools.setRefVisibility = useCallback((id, on = true) => {
-    //console.log(`DELME:${id}`);
-    if (graphRefs.current[id])
-      graphRefs.current[id].style.visibility = on ? "visible" : "hidden";
+
+  const { setRefVisibility, setPolylineFocus, setPolylineBlink } = useMemo(() => {
+    //通过 ref设定隐藏的方式 ，已放弃 后面采用 react的通用方式
+    const setRefVisibility = (id, on = true) => {
+      if (graphRefs.current[id])
+        graphRefs.current[id].style.visibility = on ? "visible" : "hidden";
+    };
+
+    const setPolylineFocus = (id, on = true) => {
+      let domEle = graphRefs.current[id];
+      if (!domEle) return;
+      if (on)
+        domEle.classList.add("svgPath-focus");
+      else
+        domEle.classList.remove("svgPath-focus");
+    };
+
+    const setPolylineBlink = (id, wait = 1000) => {
+      //console.log(`DELME:${id}`);
+      let domEle = graphRefs.current[id];
+      if (!domEle) return;
+
+      domEle.classList.add("svgPath-focus");
+      setTimeout(() => {
+        domEle.classList.remove("svgPath-focus");
+      }, wait);
+    };
+
+    return { setRefVisibility, setPolylineFocus, setPolylineBlink };
   }, [graphRefs]);
 
+  Object.assign(glbTools, { setRefVisibility, setPolylineFocus, setPolylineBlink })
 
 
 
-  const { setLayerHidden, setLayerTarget } = useMemo(() => {
+  const { setLayerHidden, setLayerTarget, setPolylineHidden, setPolylinesHidden } = useMemo(() => {
     const setLayerHidden = (layerId, isHidden) => {
       setStateGraphs(old => {
         let { layers } = old; //{thumbnail, bbox, styles, layers}
@@ -274,11 +311,86 @@ function ViewEditor() {
       })
     }
 
-    return { setLayerHidden, setLayerTarget };
+    //线条设定 隐藏 isHidden 参数没有 就翻转
+    const setPolylineHidden = (layerId, polylineId, isHidden) => {
+      setStateGraphs(stateGraphsOld => {//{thumbnail, bbox, styles, layers}
+        let { polylineSet } = stateGraphsOld.layers[layerId];
+        //设定 值
+        if ("boolean" === typeof (isHidden)) {
+          if (!!isHidden === !!polylineSet[polylineId].hidden)
+            return stateGraphsOld;
+          else {
+            if (isHidden)
+              polylineSet[polylineId].hidden = true;
+            else
+              delete polylineSet[polylineId].hidden;
+
+            return Object.assign({}, stateGraphsOld);
+          }
+        }
+        //设定 翻转
+        else {
+          if (!!polylineSet[polylineId].hidden)
+            delete polylineSet[polylineId].hidden;
+          else
+            polylineSet[polylineId].hidden = true;
+
+          return Object.assign({}, stateGraphsOld);
+        }
+      })
+    }
+
+    //isHidden 参数没有 就翻转
+    const setPolylinesHidden = (lst, isHidden) => {
+      setStateGraphs(stateGraphsOld => {//{thumbnail, bbox, styles, layers}
+        let needUpdate = false;
+        let { layers } = stateGraphsOld;
+
+        for (let { layerId, polylineId } of lst) {
+          let { polylineSet } = layers[layerId];
+          //有 isHidden 参数
+          if ("boolean" === typeof (isHidden)) {
+            if (!!isHidden === !!polylineSet[polylineId].hidden)
+              continue;
+            else {
+              if (isHidden)
+                polylineSet[polylineId].hidden = true;
+              else
+                delete polylineSet[polylineId].hidden;
+
+              needUpdate = true;
+            }
+          }
+          //设定 翻转
+          else {
+            if (!!polylineSet[polylineId].hidden)
+              delete polylineSet[polylineId].hidden;
+            else
+              polylineSet[polylineId].hidden = true;
+
+            needUpdate = true;
+          }
+
+        }
+
+        if (needUpdate)
+          return Object.assign({}, stateGraphsOld);
+        else
+          return stateGraphsOld;
+
+      })
+    }
+
+
+
+    return { setLayerHidden, setLayerTarget, setPolylineHidden, setPolylinesHidden };
   }, [setStateGraphs]);
 
-  const setLayer = useCallback(
-    () => {
+  Object.assign(glbTools, { setLayerHidden, setLayerTarget, setPolylineHidden, setPolylinesHidden })
+
+
+  const { setLayerToTarget, onBboxSelect } = useMemo(() => {
+    const setLayerToTarget = () => {
       let { layers } = stateGraphs;
       //下面构造 params， {layerId: {layerTarget}, ...} 
 
@@ -291,16 +403,32 @@ function ViewEditor() {
       if (Object.keys(params).length > 0)
         workerCommand({ method: _define.WORKER_METHOD.SET_LAYER, params })
 
-    },
-    [stateGraphs, workerCommand]); //这个选择函数 依赖 stateGraphs，因为其内 层面有 hidden属性
+    };
+    const onBboxSelect = (start, end) => {
+      //console.log(`EMOVEME: select [${start[0]},${start[1]}][${end[0]},${end[1]}]`);
+      let { layers } = stateGraphs;
+      //下面构造 params， {layerId: box, ...} 
+      let params = {};
+      for (let layerId in layers) {
+        if (!!layers[layerId].hidden) continue; //当前隐藏的层 肯定不作为 select 的对象
+        params[layerId] = [start, end];
+      }
+      //console.log('Issue select');
+      //glbTools.workerCommand(_define.WORKER_METHOD.SELECT, params);
+      workerCommand({ method: _define.WORKER_METHOD.SELECT, params })
+    };
+    return { setLayerToTarget, onBboxSelect };
+  }, [stateGraphs, workerCommand])
+
+  Object.assign(glbTools, { setLayerToTarget, onBboxSelect })
 
 
   glbTools.workerCommand = (method, params) => workerCommand({ method, params });
   //glbTools.onScaleChange = setScaleLevel;
 
   glbTools.onSave = (tool, value) => {
-    //glbTools.workerCommand(_define.WORKER_METHOD.SAVE, { editor: value });
-    workerCommand({ method: _define.WORKER_METHOD.SAVE, params: { editor: value } })
+    //glbTools.workerCommand(_define.WORKER_METHOD.SAVE, { svgPanZoomValue: value });
+    workerCommand({ method: _define.WORKER_METHOD.SAVE, params: { svgPanZoomValue: value } })
   };
 
   glbTools.onUndo = () => {
@@ -313,25 +441,22 @@ function ViewEditor() {
     workerCommand({ method: _define.WORKER_METHOD.REDO, params: {} })
   };
 
-  glbTools.onSelect = useCallback(
-    (start, end) => {
-      //console.log(`EMOVEME: select [${start[0]},${start[1]}][${end[0]},${end[1]}]`);
-      let { layers } = stateGraphs;
-      //下面构造 params， {layerId: box, ...} 
-      let params = {};
-      for (let layerId in layers) {
-        if (!!layers[layerId].hidden) continue; //当前隐藏的层 肯定不作为 select 的对象
-        params[layerId] = [start, end];
-      }
-      //console.log('Issue select');
-      //glbTools.workerCommand(_define.WORKER_METHOD.SELECT, params);
-      workerCommand({ method: _define.WORKER_METHOD.SELECT, params })
-    },
-    [stateGraphs, workerCommand]);
+  const { deletePolyline, deletePolylines, deleteSelected } = useMemo(() => {
 
-  glbTools.onDelete = useCallback(
-    () => {
+    //[{layerId, polylineId}]
+    let deletePolylines = (lst) => {
+      // params， {layerId: [polylineId1, ...], ...} 
+      workerCommand({ method: _define.WORKER_METHOD.DELETE, params: lst })
+    };
+
+    let deletePolyline = (layerId, polylineId) => {
+      // params， {layerId: [polylineId1, ...], ...} 
+      deletePolylines([{ layerId, polylineId }]);
+    };
+
+    let deleteSelected = () => {
       let { layers } = stateGraphs;
+      /* 构造 对象  改为数组
       //下面构造 params， {layerId: [polylineId1, ...], ...} 
       let params = {};
       for (let layerId in layers) {
@@ -344,13 +469,30 @@ function ViewEditor() {
         if (0 === params[layerId].length)
           delete params[layerId];
       }
-
       if (Object.keys(params).length > 0)
         //glbTools.workerCommand(_define.WORKER_METHOD.DELETE, params); //发布指令 删除线条
         workerCommand({ method: _define.WORKER_METHOD.DELETE, params })
+      */
+      //下面构造 params， [{layerId, polylineId1}, ...]
+      let lst = [];
+      for (let layerId in layers) {
+        let { polylineSet } = layers[layerId];
+        for (let polylineId in polylineSet) {
+          if (polylineSet[polylineId].selected) //从每一层 找出 selected 的线条
+            lst.push({ layerId, polylineId });
+        }
+      }
+      if (lst.length > 0)
+        deletePolylines(lst);
+    }
 
-    },
-    [stateGraphs, workerCommand]);
+    return { deletePolyline, deletePolylines, deleteSelected };
+  }, [stateGraphs, workerCommand])
+
+  Object.assign(glbTools, { deletePolylines, deletePolyline, deleteSelected })
+
+
+
 
   glbTools.onBorderSet = useCallback(
     () => {
@@ -376,123 +518,203 @@ function ViewEditor() {
 
   glbTools.onHelp = () => openDoc(toolsHelpPath);
 
-  // viewerMouseEvent 定义如下：
-  //{SVGViewer: svgDomNode, originalEvent, value, x, y, scaleFactor, translationX, translationY}
-  glbTools.onSvgClick = useCallback((viewerMouseEvent, tool) => {
 
-    let { originalEvent: event, x: svgX, y: svgY, value: editorValue } = viewerMouseEvent;
-    //event.preventDefault();
+  const { polylineSelect, polylinesSelect, onSvgClick, polylinePatch } = useMemo(() => {
 
-    //select 工具会在 拖拽选择之后 释放一个click事件，这里通过最近的value中记录判断之前是否拖拽
-    //console.dir(editorValue);
-    if (TOOL_SELECT === tool &&
-      editorValue.startX !== editorValue.endX &&
-      editorValue.startY !== editorValue.endY &&
-      editorValue.lastAction === ACTION_SELECT)
-      return;
+    const polylineSelect = (layerId, polylineId, val) => {
+      setStateGraphs(stateGraphsOld => {
+        let { layers } = stateGraphsOld; //{thumbnail, bbox, styles, layers}
+        if (!layers[layerId] || !layers[layerId].polylineSet[polylineId]) {
+          console.warn(`REMOVEME: 不可能，当前的stateGraphs肯定能找到 layerId:${layerId} polylineId:${polylineId}`);
+          return stateGraphsOld;
+        }
+
+        let { polylineSet } = layers[layerId];
+
+        //翻转
+        if ('undefined' === typeof val) {
+          if (polylineSet[polylineId].selected)
+            delete polylineSet[polylineId].selected;
+          else
+            polylineSet[polylineId].selected = true;
+
+        }
+        else if (val)
+          polylineSet[polylineId].selected = true;
+        else
+          delete polylineSet[polylineId].selected;
 
 
-    let domElement = event.target;
-    //console.log(`OnSVGClick:[${svgX},${svgY}]`);
-    //console.log(`click with TOOL: ${tool}`)
-    //console.dir(viewerMouseEvent);
+        return Object.assign({}, stateGraphsOld);
+      })
+    };
+
+    //lst :[{layerId, polylineId}, ...]
+    const polylinesSelect = (lst, val) => {
+      setStateGraphs(stateGraphsOld => {
+        let needUpdate = false;
+        let { layers } = stateGraphsOld; //{thumbnail, bbox, styles, layers}
+
+        for (let { layerId, polylineId } of lst) {
+          if (!layers[layerId] || !layers[layerId].polylineSet[polylineId]) {
+            console.warn(`REMOVEME: in polylinesSelect(), 不可能，当前的stateGraphs找不到 layerId:${layerId} polylineId:${polylineId}`);
+            continue;
+          }
+
+          let { polylineSet } = layers[layerId];
+
+          //翻转
+          if ('undefined' === typeof val) {
+            if (polylineSet[polylineId].selected)
+              delete polylineSet[polylineId].selected;
+            else
+              polylineSet[polylineId].selected = true;
+
+          }
+          else if (val)
+            polylineSet[polylineId].selected = true;
+          else
+            delete polylineSet[polylineId].selected;
+
+          needUpdate = true;
+        }
+
+        if (needUpdate)
+          return Object.assign({}, stateGraphsOld);
+        else
+          return stateGraphsOld;
+      })
+    };
+
+    // viewerMouseEvent 定义如下：
+    //{SVGViewer: svgDomNode, originalEvent, value, x, y, scaleFactor, translationX, translationY}
+    const onSvgClick = (viewerMouseEvent, tool) => {
+
+      let { originalEvent: event, x: svgX, y: svgY, value: panZoomValue } = viewerMouseEvent;
+      //event.preventDefault();
+
+      //select 工具会在 拖拽选择之后 释放一个click事件，这里通过最近的value中记录判断之前是否拖拽
+      //console.dir(panZoomValue);
+      if (TOOL_SELECT === tool &&
+        panZoomValue.startX !== panZoomValue.endX &&
+        panZoomValue.startY !== panZoomValue.endY &&
+        panZoomValue.lastAction === ACTION_SELECT)
+        return;
 
 
-    //尝试找出 layerId 和 polylineId
-    let layerId = '', polylineId = '';
-    polylineId = domElement.id;
-    layerId = domElement.parentElement.id;
-    //如果path没有id，那么可能是在外围 g 标签内
-    if ('' === polylineId) {
-      polylineId = domElement.parentElement.id;
-      layerId = domElement.parentElement.parentElement.id;
-    }
+      let domElement = event.target;
+      //console.log(`OnSVGClick:[${svgX},${svgY}]`);
+      //console.log(`click with TOOL: ${tool}`)
+      //console.dir(viewerMouseEvent);
 
-    //通过格式核查
-    if ('' !== layerId && !layerId.startsWith('layer_')) {
-      if (!polylineId && !layerId)
-        console.warn(`真是奇了他喵的怪了，选择的是啥玩意~ polylineId:${polylineId}, layerId:${layerId}`);
-      polylineId = layerId = '';
-    }
 
-    //空点
-    if ('' === polylineId) {
-      if (TOOL_SELECT === tool || TOOL_AUTO === tool || TOOL_CUT === tool) {
-        //清理所有的选择线条的 selected 属性
-        setStateGraphs(stateGraphsOld => {
-          let { layers } = stateGraphsOld;
-          let clearCnt = 0;
-          //下面清除所有线条的 selected 的标记
-          for (let layerId in layers) {
-            let { polylineSet } = layers[layerId];
-            for (let polylineId in polylineSet) {
-              if (polylineSet[polylineId].selected) { //从每一层 找出 selected 的线条
-                delete polylineSet[polylineId].selected;
-                clearCnt++;
+      //尝试找出 layerId 和 polylineId
+      let layerId = '', polylineId = '';
+      polylineId = domElement.id;
+      layerId = domElement.parentElement.id;
+      //如果path没有id，那么可能是在外围 g 标签内
+      if ('' === polylineId) {
+        polylineId = domElement.parentElement.id;
+        layerId = domElement.parentElement.parentElement.id;
+      }
+
+      //通过格式核查
+      if ('' !== layerId && !layerId.startsWith('layer_')) {
+        if (!polylineId && !layerId)
+          console.warn(`真是奇了他喵的怪了，选择的是啥玩意~ polylineId:${polylineId}, layerId:${layerId}`);
+        polylineId = layerId = '';
+      }
+
+      //空点
+      if ('' === polylineId) {
+        if (TOOL_SELECT === tool || TOOL_AUTO === tool || TOOL_CUT === tool) {
+          //清理所有的选择线条的 selected 属性
+          setStateGraphs(stateGraphsOld => {
+            let { layers } = stateGraphsOld;
+            let clearCnt = 0;
+            //下面清除所有线条的 selected 的标记
+            for (let layerId in layers) {
+              let { polylineSet } = layers[layerId];
+              for (let polylineId in polylineSet) {
+                if (polylineSet[polylineId].selected) { //从每一层 找出 selected 的线条
+                  delete polylineSet[polylineId].selected;
+                  clearCnt++;
+                }
               }
             }
-          }
-          if (clearCnt === 0)
-            return stateGraphsOld;
-          else
-            return Object.assign({}, stateGraphsOld);
-        })
-      }
-    }
-
-
-
-    //点击到线条
-    else {
-      //console.log(`onclick layerId: ${layerId} polylineId: ${polylineId}`);
-      if (TOOL_SELECT === tool || TOOL_AUTO === tool) {
-        //切换线条的选择状态
-        setStateGraphs(stateGraphsOld => {
-          let { layers } = stateGraphsOld; //{thumbnail, bbox, styles, layers}
-          if (!layers[layerId] || !layers[layerId].polylineSet[polylineId]) {
-            console.warn(`REMOVEME: 不可能，当前的stateGraphs肯定能找到 layerId:${layerId} polylineId:${polylineId}`);
-            return stateGraphsOld;
-          }
-
-          if (layers[layerId].polylineSet[polylineId].selected)
-            delete layers[layerId].polylineSet[polylineId].selected;
-          else
-            layers[layerId].polylineSet[polylineId].selected = true;
-          //console.log(`select toggle!! layerId: ${layerId} polylineId: ${polylineId}`);
-          //}
-          return Object.assign({}, stateGraphsOld);
-        })
-
+            if (clearCnt === 0)
+              return stateGraphsOld;
+            else
+              return Object.assign({}, stateGraphsOld);
+          })
+        }
       }
 
-      else if (TOOL_CUT === tool) {
-        //console.log(`Click with ${tool} on polyline:${polylineId}@${layerId}, position:[${svgX},${svgY}]`);
 
-        let params = {
+
+      //点击到线条
+      else {
+        //console.log(`onclick layerId: ${layerId} polylineId: ${polylineId}`);
+        if (TOOL_SELECT === tool || TOOL_AUTO === tool) {
+          //切换线条的选择状态
+          polylineSelect(layerId, polylineId);
+
+        }
+
+        else if (TOOL_CUT === tool) {
+          //console.log(`Click with ${tool} on polyline:${polylineId}@${layerId}, position:[${svgX},${svgY}]`);
+
+          let params = {
+            layerId,
+            polylineId,
+            point: [svgX, svgY],
+          };
+
+          //这里使用了 从worker传来的 info中的缺省断点参数，也可以不用，worker中会自动使用缺省的
+          //if (!!stateWorkerInfo)
+          //  params.gap = stateWorkerInfo.params.breakDefault;
+          if (stateGraphs.layers[layerId].polylineSet[polylineId].isClosed)
+            workerCommand({ method: _define.WORKER_METHOD.BREAK, params })
+          else
+            workerCommand({ method: _define.WORKER_METHOD.PATCH, params })
+
+        }
+      }
+
+    };
+
+    const polylinePatch = (layerId, polylineId) => {
+      workerCommand({
+        method: _define.WORKER_METHOD.PATCH, params: {
           layerId,
           polylineId,
-          point: [svgX, svgY],
-        };
-
-        //这里使用了 从worker传来的 info中的缺省断点参数，也可以不用，worker中会自动使用缺省的
-        if (!!stateWorkerInfo) {
-          params.gap = stateWorkerInfo.params.breakDefault;
         }
-        //glbTools.workerCommand(_define.WORKER_METHOD.BREAK, params); //发布指令 删除线条
-        workerCommand({ method: _define.WORKER_METHOD.BREAK, params })
-      }
+      })
     }
+    return { polylineSelect, polylinesSelect, onSvgClick, polylinePatch }
+  }, [setStateGraphs, workerCommand, stateGraphs])
 
-  }, [setStateGraphs, stateWorkerInfo, workerCommand]);
+  Object.assign(glbTools, { polylineSelect, polylinesSelect, onSvgClick, polylinePatch })
+
+
 
 
   //未分配层结构 (隐藏 目标层等)输出，主要用途是 给旁边用来 做层面选取
-  //结构为  [{ layerId, hidden, layerTarget, isWellknown, layerOptions }] isWellknown:表示该层设定已经是知名层
+  //uiLayersInfo 结构为 [{ layerId, hidden, layerTarget, isWellknown, layerOptions }] isWellknown:表示该层设定已经是知名层
   let { uiLayersInfo, layerHasIssue, borderHasIssue } = useMemo(() => {
-    let uiLayersInfo = [], layerHasIssue = false;
-    if (!stateGraphs) return { uiLayersInfo, layerHasIssue };
+    //定义缺省值
+    let uiLayersInfo = [],
+      layerHasIssue = false,
+      borderHasIssue = false;
+    if (!stateGraphs) return {
+      uiLayersInfo,
+      layerHasIssue,
+      borderHasIssue
+    };
 
     let { layers: graphLayers, styles: graphStyles } = stateGraphs; //{thumbnail, bbox, styles, layers}
+
+    //组织 uiLayersInfo
     for (let layerId in graphLayers) {
 
       let isWellknown = !!graphStyles.layerBaseColor[layerId]; //检查是否知名层
@@ -505,28 +727,27 @@ function ViewEditor() {
       uiLayersInfo.push({ layerId, hidden, layerTarget, layerOptions, isWellknown });
     }
 
-
     return { uiLayersInfo, layerHasIssue, borderHasIssue: !stateWorkerInfo.border };
   }, [stateGraphs, stateWorkerInfo]);
 
 
 
   /*
-
- 层设定 上下文菜单
- 
- 弹出菜单不难，麻烦的是 点击其他地方 关闭菜单，放弃该UI元素，采用其他方式实现 选择层面
-
-参考：
-
-https://stackoverflow.com/questions/49381837/open-context-menu-on-table-row-right-click
-https://github.com/AlastairTaft/contextmenu
-https://ahooks.js.org/hooks/dom/use-click-away/
-https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/index.ts
-
-
-
-.layer-set-popup {
+  
+  层设定 上下文菜单
+   
+  弹出菜单不难，麻烦的是 点击其他地方 关闭菜单，放弃该UI元素，采用其他方式实现 选择层面
+  
+  参考：
+  
+  https://stackoverflow.com/questions/49381837/open-context-menu-on-table-row-right-click
+  https://github.com/AlastairTaft/contextmenu
+  https://ahooks.js.org/hooks/dom/use-click-away/
+  https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/index.ts
+  
+  
+  
+  .layer-set-popup {
   animation-name: fadeIn;
   animation-duration: 0.4s;
   background-clip: padding-box;
@@ -543,15 +764,15 @@ https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/ind
   top: 0px;
   overflow: hidden;
   -webkit-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-
+  }
+  
+  
   const Popup = ({visible, x, y}) => visible &&
   <ul className="layer-set-popup" style={{left: `${x}px`, top: `${y}px`}}>
     <li>Like it</li>
     <li>Bookmark</li>
   </ul>
-
+  
     const [anchorEl, setAnchorEl] = React.useState(null);
     glbTools.onLayerSet = useCallback(
       event => setAnchorEl(event.currentTarget),
@@ -604,6 +825,13 @@ https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/ind
         <marker id="markerArrowOnStart" orient="auto" refY="0" refX="0" markerUnits="strokeWidth">
           <path d="M 2,0 l 4,-2, 0,4 z" strokeWidth="3" stroke="#f00"></path>
         </marker>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>) : null;
 
       let mainSvgGroups = null;
@@ -626,8 +854,9 @@ https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/ind
           //将每根线条都放置到 <path> 或 <g> 标签中
           let pathGroup = [];
           for (let plylnId in currentLayerPolylineSet) {
-            let { path, gaps, selected } = currentLayerPolylineSet[plylnId];
-            let attributes = {
+            let { path, gapPath, selected, hidden: currentPolylineHidden } = currentLayerPolylineSet[plylnId];
+            if (currentPolylineHidden) continue;
+            let wrapperBaseAttributes = {
               key: plylnId, id: plylnId,
               //onMouseEnter: (e) => handleMouseOver(e, true),
               //onMouseLeave: (e) => handleMouseOver(e, false),
@@ -637,26 +866,34 @@ https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/ind
               className: "svgPath"
             }
 
+            let gapAttributes = graphStyles.polylineGaps;
             //检查是否是选择的线条，若是除了应用 相应样式，同时加粗
-            let selectedGroupAttributes = selected ? { ...graphStyles.polylineGroupSelected, strokeWidth: 2 * graphStyles.polylineGroup['strokeWidth'] } : {};
+            let selectedWrapperAttributes = selected ? { ...graphStyles.polylineWrapperSelected, strokeWidth: 2 * graphStyles.polylineWrapper['strokeWidth'] } : {};
             //if (selected) console.log(`selected: layerId: ${layerId} polylineId: ${plylnId}`);
-            let selectedAttributes = selected ? { ...graphStyles.polylineSelected } : {};
+            let selectedPolylineAttributes = selected ? { ...graphStyles.polylinePathSelected } : {};
+
 
             pathGroup.push(
-              !!gaps && gaps.length > 0 ?
-                <g {...attributes} {...selectedGroupAttributes}> <path {...selectedAttributes} d={path} /><path {...graphStyles.gaps} d={gaps} /></g> :
-                <path {...attributes} {...selectedGroupAttributes} {...selectedAttributes} d={path} />
+              /*  长时间不用 即可以删除
+              !!gapPath && gapPath.length > 0 ?
+                <g {...wrapperBaseAttributes}  {...selectedWrapperAttributes}> <path {...selectedPolylineAttributes} d={path} /><path {...gapAttributes} d={gapPath} /></g> :
+                <path {...wrapperBaseAttributes}  {...selectedWrapperAttributes} {...selectedPolylineAttributes} d={path} />
+              */
+              <g {...wrapperBaseAttributes}  {...selectedWrapperAttributes}> <path {...selectedPolylineAttributes} d={path} /><path {...gapAttributes} d={gapPath} /></g>
+
             );
           }
 
 
           //层样式 先设定配置基础
-          let layerStyle = Object.assign({}, graphStyles.polylineGroup);
-          //若知名层 设定 颜色
-          if (!!graphStyles.layerBaseColor[layerId])
-            layerStyle.stroke = graphStyles.layerBaseColor[layerId];
+          let layerStyle = Object.assign({}, graphStyles.polylineWrapper);
 
-          //若设定target 设定 线型
+          // 【暂时屏蔽】  红绿蓝 颜色实在不是很显眼
+          //若知名层 设定 颜色 
+          //if (!!graphStyles.layerBaseColor[layerId])
+          //  layerStyle.stroke = graphStyles.layerBaseColor[layerId];
+
+          //若设定target 设定 虚线
           if (!!currentLayerTarget) {
             layerStyle.strokeDasharray = "5,1";
             //若是知名层 也设定颜色
@@ -679,33 +916,47 @@ https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/ind
       [stateGraphs]); //依赖 worker的graph , scaleLevel
 
 
+  const { setFitBox } = useMemo(() => {
 
-
-  //视野定位 依赖 setPanZoomValue
-  glbTools.setFitBox = useCallback(
-    (min, max) => {
+    const setFitBox = (min, max) => {
+      //console.table([min, max]);
       [min, max] = bboxPretty([min, max], 2 / 1); //提供长宽比很重要
-      [min, max] = verticesBbox(mirrorVertical([min, max]));  //所有坐标都是竖向镜像的，所以...
-      setPanZoomValue(oldValue => {
-        let newValue = fitSelection(oldValue, ...min, max[0] - min[0], max[1] - min[1]);
+      //[min, max] = verticesBbox(mirrorVertical([min, max]));  //所有坐标都是竖向镜像的，所以...
+      setEditorValue(oldValue => {
+        let { viewerWidth, viewerHeight } = oldValue; //外框
+        let [sx, sy] = min, [bx, by] = max;
+        let cx = (sx + bx) / 2, cy = (sy + by) / 2;
+        let w = bx - sx, h = by - sy;
+        if (w > viewerWidth) w = viewerWidth;    //框选区域 不能大过 外框（bboxPretty内 会调整box）
+        if (h > viewerHeight) h = viewerHeight;
+
+        if (w < 50) w = 50;  //限制在4mm， 防止 过放大
+        if (h < 25) h = 25;
+
+        let newValue = fitSelection(oldValue, cx - w / 2, cy - h / 2, w, h);
         //updateScale(newValue);
         return newValue;
       })
       //console.log(`<path d="M${min[0]} ${min[1]}h${max[0]-min[0]}v${max[1]-min[1]}h${min[0]-max[0]}z"/>`)
       //let center = [(max[0] + min[0])/2, (max[1] + min[1])/2];
-      //setPanZoomValue(oldValue => (setPointOnViewerCenter(oldValue, ...center, 1)))
-    },
-    [setPanZoomValue],
-  )
+      //setEditorValue(oldValue => (setPointOnViewerCenter(oldValue, ...center, 1)))
+    }
+
+    return { setFitBox };
+
+  }, [setEditorValue]);
+
+  //视野定位 依赖 setEditorValue
+  Object.assign(glbTools, { setFitBox })
 
 
   let svgPanZoomAttributes = {
     viewSize,
     glbTools,
-    editorTool: panZoomTool,
-    editorValue: panZoomValue,
+    editorTool: editorTool,
+    editorValue: editorValue,
     onChangeEditorTool: setPanZoomTool,
-    onChangeEditorValue: setPanZoomValue,
+    onChangeEditorValue: setEditorValue,
   };
   let issueNum = 0;
   if (layerHasIssue) issueNum++;
@@ -727,7 +978,7 @@ https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/ind
   //  <img className="side-thumbnail-img" width={250} alt="thumbnail" src={thumbnailUrl} />
 
   //  <Badge status={layerHasIssue?"error":"success"} />
-  let sideViewContent = (<Space direction="vertical">
+  let layerBorderViewContent = (<Space direction="vertical">
 
     <Space direction="vertical" >
 
@@ -739,11 +990,11 @@ https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/ind
           {<><Badge status={isWellknown ? "success" : "error"}><MenuOutlined /></Badge></>}
           <Select defaultValue={layerTarget || layerId} value={layerTarget || layerId} allowClear style={{ width: 160 }} onChange={(val) => {
             //console.log(`${layerId} => ${val}`);
-            setLayerTarget(layerId, val)
+            glbTools.setLayerTarget(layerId, val)
           }}>
             {layerOptions.map(layerOpt => (<Select.Option key={layerOpt} value={layerOpt}>{layerId2Name(layerOpt)}</Select.Option>))}
           </Select>
-          <Button shape="circle" icon={hidden ? <EyeInvisibleOutlined /> : <EyeOutlined />} onClick={() => { setLayerHidden(layerId) }} />
+          <Button shape="circle" icon={hidden ? <EyeInvisibleOutlined /> : <EyeOutlined />} onClick={() => { glbTools.setLayerHidden(layerId) }} />
         </Space>
       ))}
 
@@ -759,16 +1010,13 @@ https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/ind
         {//自动隐藏的设定按钮 uiLayersInfo 数组中只要有成员的layerTarget的属性有效，就表示被设定了
           uiLayersInfo.some(({ layerTarget }) => (!!layerTarget)) &&
           <Col span={12} style={{ textAlign: "right", marginTop: 10 }}>
-            <Popconfirm title="本操作不可撤销！！" okText="继续合并" cancelText="取消" onConfirm={setLayer}>
+            <Popconfirm title="本操作不可撤销！！" okText="继续合并" cancelText="取消" onConfirm={glbTools.setLayerToTarget}>
               <Button type="primary" > 设定层 </Button>
             </Popconfirm>
           </Col>
           // <div style={{ textAlign: "right", marginTop: 10 }}></div>
         }
       </Row>
-
-
-
 
     </Space>
 
@@ -782,6 +1030,9 @@ https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/ind
   </Space>
   );
 
+  let polylineViewContent = <SelectedList glbTools={glbTools} stateGraphs={stateGraphs} />;
+
+  const waitContent = <Spin style={{ marginTop: "100px", display: "block" }} size="large" />;
 
   let isLoaded = !!stateGraphs;
 
@@ -789,11 +1040,11 @@ https://github.com/alibaba/hooks/blob/master/packages/hooks/src/useClickAway/ind
     goBack: () => history.goBack(),
     title: isLoaded ? `${stateWorkerInfo.fileName} ` : ``,
     subTitle: isLoaded ? `(${prettyFileSize(stateWorkerInfo.fileSize)})` : ``,
-    drawerTitle: '抽屉标题',
     issueNum,
-    mainView: isLoaded ? mainViewContent : (<Spin style={{ marginTop: "100px", display: "block" }} size="large" />),
-    sideView: isLoaded ? sideViewContent : (<Spin style={{ marginTop: "100px", display: "block" }} size="large" />),
-    utilView: <Doc {...stateDoc} />
+    mainView: isLoaded ? mainViewContent : waitContent,
+    layerBorderView: isLoaded ? layerBorderViewContent : waitContent,
+    polylineView: isLoaded ? polylineViewContent : waitContent,
+    utilView: <Doc {...stateDoc} />,
   }
   if (!!stateProgress)
     layoutAttributes.progress = generalProgress(stateProgress);

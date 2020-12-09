@@ -5,38 +5,44 @@ import { Button } from 'antd'; //, Empty
 import { LoginOutlined, UserOutlined } from '@ant-design/icons';
 
 
-import 'antd/dist/antd.css';
+import 'antd/dist/antd.less';
 //import "./main.css";
 
+import { useAuth } from "../hooks/useAuth.js";
 import LayoutMain from '../layouts/layoutMain'
 import LocalList from '../views/localList'
+import CloudView from './cloudView'
+import SignInUp from '../views/signInUp'
 
 import Doc from '../components/doc'
 
-import doc2Path from '../doc/test2.md'
-const readmePath = 'https://github.com/chrvadala/react-svg-pan-zoom/raw/master/README.md'
+//const readmePath = 'https://github.com/chrvadala/react-svg-pan-zoom/raw/master/README.md'
 
 function ViewMain({ title, drawerTitle }) {
 
-    let [stateLogin, setStateLogin] = useState(false);
-    let [stateDoc, setStateDoc] = useState(null);
-    const openDoc = (docPath) =>{
-        setStateDoc({ visible: true, docPath, handleCancel: () => setStateDoc(null) })
-    } 
+    const auth = useAuth();
 
-    let loginSpot = <Button type="primary" shape="circle" icon={stateLogin ? <UserOutlined /> : <LoginOutlined />} onClick={() => setStateLogin(s => !s)} />;
+    let [stateHelp, setStateHelp] = useState(null);
+    const openHelp = (docPath) => {
+        setStateHelp({ visible: true, docPath, handleCancel: () => setStateHelp(null) });
+    }
 
-    return <LayoutMain
+
+    let loginSpot = <Button type="primary" shape="circle"
+        icon={auth.user ? <LoginOutlined /> : <UserOutlined />}
+        onClick={auth.user ? auth.signout : () => { }} />;
+
+    let ret = <LayoutMain
         loginSpot={loginSpot}
-        localView={<LocalList openDoc={openDoc}/>}
-        cloudView={<div>
-            <Button onClick={() => openDoc(doc2Path)}> open1 </Button>
-            <Button onClick={() => openDoc(readmePath)}> open1 </Button>
-        </div>
-            //<Empty style={{marginTop: "200px"}} description={false} />
-        } 
-        utilView={<Doc {...stateDoc} />}
-        />;
+        localView={<LocalList openHelp={openHelp} isLogin={!!auth.user}/>}
+        cloudView={auth.user ? <CloudView/> : <SignInUp />}
+        embeddedElements={<><Doc {...stateHelp} /></>}
+    />;
+
+    return ret;
+
+    //<LayoutMain  loginSpot={null} localView={null} cloudView={null} utilView={null}/>;
+
 }
 
 export default ViewMain;

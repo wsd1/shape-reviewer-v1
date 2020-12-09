@@ -13,14 +13,14 @@ shape-worker-v1        :   web thread. 所有线条管理和算法
 
 contor-reviewer
 
-改动：
+相对上一版本改动：
 
 * 开始使用 Antd 
 * 使用 create-react-app 脚手架；
 * 名称 从contor-reviewer 改为 shape-reviewer-v1；
 * 全面使用 yarn 工具
 
-
+[TOC]
 
 ## 项目延续历史背景
 
@@ -97,7 +97,28 @@ https://github.com/wsd1/shape-reviewer-v1
 
 正式发布时，修改 webpack.config.js 将其中 development 换为 production。再编译。
 
+## 项目工具与操作
+
+### 主题更换办法：
+参考 https://ant.design/docs/react/customize-theme-cn
+
+主要是更新 craco.config.js 文件，中的配置。
+
+
+
+
+### 公网测试
+使用 ngrok 来发布到公网：
+
+shape-reviewer-v1 发布出去：
+
+~/worktools/ngrok  http 3000
+
+
+
+
 ## reviewer的设计 20200909
+
 这次(shape-reviewer-v1)的设计经历了多少次的重构，才慢慢的掌握了svg图形化处理 以及 react的编程。其中使用了 antd，的确大大提升了效率，很多细节都给你照顾到了，比如 message，spin什么的用起来很方便。
 在设计上，我也形成了自己的一点小小的规范，在处理界面和逻辑方面，我大致将代码分为：components、layouts和views，对应的可以看到代码文件夹。
 
@@ -105,8 +126,116 @@ layouts主要划分页面区域，views中的代码，则重点组织数据，�
 
 其中最为重量的就是 "views/editor.js"。编辑器所有逻辑都在这个文件中。
 
+### 地址编辑器的设计 2020 1119
 
-### 关于进度的机制
+代码参考 components/addressEdit.js
+
+借鉴了 https://github.com/gitSirzh/react-smart-address，从其中借到中国各个行政区的省市区分类信息 lib/address.js。
+该组件使用父组件提供的 addr和setAddr 状态管理。其渲染后可以是可读地址，点击就可以编辑之。
+其提供保存，和放弃保存按钮，分别可以为父组件提供 保存 和 刷新数据的 回调。
+
+### 登录管理 useAuth的设计 20201110
+
+在 hook/中 有useAuth.js用来处理登录注册等各种用户相关的逻辑。其建立在 useContext函数的基础上。细节看代码。
+
+其参考与：https://usehooks.com/useAuth/
+
+### reCaptch集成
+
+前端：
+
+参考：./lib/loadReCaptcha.js，该部分用于加载recaptcha的js代码。
+在 app.js中 useEffect 调用之，将recaptcha相关接口安装在 window对象上。
+
+在具体的与后端api交互代码上，例如 views/signInUp.js中，可以在具体交互动作时，获取recaptcha的token，并将其带入后台检验。
+
+例如：
+
+```js
+    window.grecaptcha && window.grecaptcha.ready(() => {
+      //不同动作 用不同的action
+      window.grecaptcha.execute(config.recapcha.site_key, { action: 'SignIn' }).then(token => {
+        //将token带入后台。
+        auth.signin(email, password, token)
+          .then(isOK => { if (isOK) message.info("登录成功") })
+          .catch(error => message.error(error.message));
+      });
+    });
+```
+
+
+后端：
+
+用户注册登录都借助strapi的cms，所以需要修改users-permissions插件。
+
+参考了 https://www.youtube.com/watch?v=xviMhw49REg  这个视频
+
+通过 源代码 packages/strapi-plugin-users-permissions/config/routes.json 可以找出register接口，在 strapi原始代码中的 packages/strapi-plugin-users-permisions/controllers/Auth.js。
+拷贝到 服务器实例的 相同的 controllers/路径下。
+
+我们在服务器实例下做修改，主要就是改动Auth.register这个函数。
+请参考具体代码。
+```js
+...
+        try {
+            //console.log('-------recaptcha params: -------- ');
+            //console.log(params);
+
+            let response = await axios.post(verificationURL);
+
+            if (!response.data.success) {
+                console.log('-------recaptcha verification err: -------- ');
+                console.log(response.data);
+
+                throw { message: "reCaptcha protection." }
+            }
+        }
+        catch (err) {
+
+            return ctx.badRequest(null, formatError({
+                id: 'Auth.form.error.recaptcha.invalid',
+                message: err.message
+            }));
+        }
+...
+```
+简而言之就是收到 token之后，再向 recaptcha的服务器发送token，获取 判断，进而决定是否允许该controller的请求得以通过。
+
+github上还有一个使用 http头部添加 x-recaptcha-token 自定义头部的方式来实现向后端传递 token，这种方式可以使用 strapi的 middleware 方式来检验token（其实就是koa的middleware）。这种方式中间件会接触到每一个请求，所以需要对路径做出判断，进而才能决定是否对 recaptcha的token做出检查。有点麻烦，我就没有选择这个方式。
+
+
+```
+
+### css 如何用div填满视口
+
+主界面需要垂直居中的设计，所以，需要中间块元素垂直填满。在 layoutMain.css 中使用了 100vh 来获取100%的视口高度，并使用 calc 计算出中间部位的高度。
+
+```css
+
+.site-content {
+  /* 视口总高减去 导航 和 页脚 */
+  min-height: calc(100vh -  64px - 68px);
+}
+
+```
+
+### 如何使用 reCaptcha
+
+https://www.google.com/recaptcha/admin/create 创建网站key
+
+注意 可以使用 localhost 定义自己的目标域名。
+
+
+在 app.js中加载 ./lib/loadReCaptcha.js
+
+并 使用 useEffect首次加载
+
+
+可以登录 https://www.google.com/recaptcha/admin/ 查看网站情况。
+
+
+
+### 关于操作进度（progress）的机制
 worker中有个得意的设计，（见 worker代码 updater.js） 可以设定步数，并且回调发出进度信息，其格式如：
 
   {PARSE_DXF: 30, SET_LAYER: 20}
@@ -173,6 +302,71 @@ https://github.com/probablyup/markdown-to-jsx
 
 
 
+### svg动画属性
+应用中需要强调图像元素，如果使用react的机制 刷新几次那么大的dom树，难免负担太重。所以采用了useref 来索引每一个path元素。
+
+为dom元素添加css 非常简单：
+
+定义好 css class，类如"svgPath-focus"
+
+    domEle.classList.add("svgPath-focus");
+    domEle.classList.remove("svgPath-focus");
+
+### 获取规划板 信息的格式
+
+访问： /sheet-materials
+
+```json
+
+[
+  {
+    "name": "普通椴木板",
+    "code": "basswoodSimple",
+    "description": "普通椴木板\n\n----\n\n价格便宜量又足。公差0.2mm。切缝0.1mm。\n\n",
+    "category": "木材-椴木",
+    "images": [
+      {
+        "width": 480,
+        "height": 480,
+        "url": "/uploads/basswood_sheet1_11dac5aae5.jpeg"
+      },
+      {
+        "width": 400,
+        "height": 400,
+        "url": "/uploads/1_4_x_4_x_24_basswood_sheet_product_IMG_0040_04_c2fa6f2eed.jpg"
+      }
+    ],
+    "plans": [
+      {
+        "station": "华中站",
+        "width": 300,
+        "height": 200,
+        "column": 4,
+        "row": 6,
+        "price": 15,
+        "thickness": 4,
+        "name": "普椴板4mm[300x200][4x6]"
+      },
+      {
+        "station": "华中站",
+        "width": 300,
+        "height": 200,
+        "column": 4,
+        "row": 6,
+        "price": 15,
+        "thickness": 3,
+        "name": "普椴板6mm[300x200][4x6]"
+      }
+    ]
+  }
+]
+
+
+
+```
+
+
+
 ## 各种资源整理
 
 ### 使用CreateReactApp 创建与安装
@@ -193,6 +387,15 @@ Sunflower 基于 antd 的流程组件:
 
 https://ant-design.github.io/sunflower/zh-CN
 
+
+icons:
+
+https://2fd.github.io/ant-design-icons/#
+
+
+主题编辑：
+
+https://antdtheme.com/
 
 ### webworker知识
 重点参考： https://github.com/dai-shi/react-hooks-worker/
