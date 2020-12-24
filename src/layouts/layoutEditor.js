@@ -14,20 +14,18 @@ const { TabPane } = Tabs;
 //const { Header, Content, Footer } = Layout;
 
 
-function LayoutEditor({ goBack, title, subTitle, issueNum, progress, mainView, layerBorderView, polylineView, utilView }) {
+function LayoutEditor({ goBack, title, subTitle, tags, issueNum, progress, mainView, layerBorderView, polylineView, configGlobalView, configCurrentView, utilView }) {
 
   let [stateDrawVisible, setStateDrawVisible] = useState(false);
 
   const isProcessing = "number" === typeof (progress) && progress > 0;
-
-
 
   const content = <>
     {isProcessing && <div className="main-view-and-drawer-mask" />}
     {isProcessing && <Progress percent={progress} />}
     <div className="main-view-and-drawer">
       {mainView}
-      <Drawer 
+      <Drawer
         title={'控制面板'}
         closeIcon={<RightOutlined />}
         onClose={() => setStateDrawVisible(false)}
@@ -38,8 +36,8 @@ function LayoutEditor({ goBack, title, subTitle, issueNum, progress, mainView, l
         zIndex={1}
         getContainer={false}
         style={{ position: 'absolute' }}  //这个使得drawer在navBar下面
-        headerStyle={{position: 'absolute', visibility:'hidden'}} //这个用来消除drawer的header
-        bodyStyle={{paddingTop: 5}}  //这个用来消除body的上面
+        headerStyle={{ position: 'absolute', visibility: 'hidden' }} //这个用来消除drawer的header
+        bodyStyle={{ paddingTop: 5 }}  //这个用来消除body的上面
         width={480}
       >
 
@@ -49,6 +47,12 @@ function LayoutEditor({ goBack, title, subTitle, issueNum, progress, mainView, l
           </TabPane>
           <TabPane tab="线条" key="2">
             {polylineView}
+          </TabPane>
+          <TabPane tab="全局设置" key="3">
+            {configGlobalView}
+          </TabPane>
+          <TabPane tab="图纸设置" key="4">
+            {configCurrentView}
           </TabPane>
         </Tabs>
 
@@ -65,8 +69,9 @@ function LayoutEditor({ goBack, title, subTitle, issueNum, progress, mainView, l
         onBack={goBack}
         title={title}
         subTitle={subTitle}
+        tags={tags}
         extra={<Badge count={issueNum}>
-          <Button shape="circle" icon={stateDrawVisible?<RightOutlined />:<BarsOutlined />} onClick={() => setStateDrawVisible(s => !s)} />
+          <Button shape="circle" icon={stateDrawVisible ? <RightOutlined /> : <BarsOutlined />} onClick={() => setStateDrawVisible(s => !s)} />
         </Badge>}
       >
       </PageHeader>

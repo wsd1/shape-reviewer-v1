@@ -31,22 +31,23 @@
   transition: 0.3s;
   background-color: #f1f2f6;
   border-radius: 10px;
+  margin-bottom: 20px;
   overflow: hidden;
+  position:relative;
 }
 
 .row-card:hover {
   box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
 }
 
-
-.thumbnail-container {
-  position: relative;
-  width: 300px;
-  cursor: pointer;
+.row-remove {
+  position: absolute;
+  top: 0px;
+  right: 0px;
 }
 
 .thumbnail-img {
-  margin: auto;
+  cursor: pointer;
 }
 
 

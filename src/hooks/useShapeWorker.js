@@ -42,6 +42,7 @@ export default function useShapeWorker(createWorker, stateHandles) {
     //stateProgress, 
     //stateGraphs,
     command: (input) => {
+      //console.log("Send message to worker: ", input);
       lastWorker.current.postMessage(input);
     }};
 };

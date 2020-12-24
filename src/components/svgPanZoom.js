@@ -11,7 +11,7 @@ import {
 let viewRatio = 2.0 / 1.0;
 let paddingLeft = 56, paddingRight = 20;    //左边避开 工具栏
 
-function SvgPanZoom({ viewSize, glbTools, children, editorTool, editorValue, onChangeEditorTool, onChangeEditorValue }) {
+function SvgPanZoom({ viewSize, glbTools, children, editorTool, editorValue, onChangeEditorTool, onChangeEditorValue, isAnySelected }) {
 
     let prettyWidth = viewSize.width - (paddingLeft + paddingRight);
     let prettyHeight = viewSize.width / viewRatio;
@@ -59,7 +59,8 @@ function SvgPanZoom({ viewSize, glbTools, children, editorTool, editorValue, onC
                 onHelp: glbTools.onHelp,
                 SVGAlignX: 'center',
                 SVGAlignY: 'center',
-                isSaved, canUndo, canRedo,
+                isSaved, canUndo, canRedo, 
+                canDelete: isAnySelected
             }}
             onClick={glbTools.onSvgClick}
         //onClick={viewerMouseEvent=>{console.dir(viewerMouseEvent.originalEvent.target);}}

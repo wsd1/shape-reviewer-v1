@@ -41,12 +41,12 @@ export default class packPlan {
 
     matchWithRotate(width, height) {
         let res = this.match(width, height);
-        console.log(`1usage: ${res.usage}`)
+        //console.log(`1usage: ${res.usage}`)
 
         if (!res) {   //若放不下
             //翻转尝试
             res = this.match(height, width);
-            console.log(`2rotate usage: ${res.usage}`)
+            //console.log(`2rotate usage: ${res.usage}`)
 
             if (!!res)
                 return { isRotate: true, ...res }
@@ -56,7 +56,7 @@ export default class packPlan {
         else {   //若放得下
             //翻转尝试
             let rres = this.match(height, width);
-            console.log(`3rotate usage: ${rres.usage}`)
+            //console.log(`3rotate usage: ${rres.usage}`)
 
             if (!!rres && rres.usage > res.usage){   //如果翻转也能放下，而且更优化
                 return { isRotate: true, ...rres };

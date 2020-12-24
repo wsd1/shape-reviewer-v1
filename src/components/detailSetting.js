@@ -1,15 +1,24 @@
 import React, { useState } from 'react';
 
-import { Divider, TreeSelect, Drawer, Button, Carousel, Row, Col, Image, Alert } from 'antd';
+import { Divider, TreeSelect, Modal, Button, Image, Space, Alert, Row, Col, Descriptions } from 'antd';
 //import { DownOutlined } from '@ant-design/icons';
 
 import AddressEdit from './addressEdit'
 import PlanChart from './planChart'
 
 import 'antd/dist/antd.less';
-import "./planSelect.css";
+import "./detailSetting.css";
 
 //import config from '../config'
+import { prettyFileSize } from '../lib/util'
+
+
+const layerId2NameDict = {
+    layer_cut: "切割层",
+    layer_carve: "雕刻层",
+    layer_fill: "填充层",
+  }
+
 
 const treeData = [
     {
@@ -119,9 +128,8 @@ const treeData = [
     },
 ];
 
-export default function PlanSelect({ visible, pack, handleCancel }) {
+export default function DetailSetting({ visible, infoPack, handleCancel }) {
 
-    //const { fileName, fileSize, thumbUrl, bbox } = pack;
 
 
     const [stateAddr, setAddr] = useState({
@@ -133,8 +141,37 @@ export default function PlanSelect({ visible, pack, handleCancel }) {
 
     let elements = [];
 
-    if (pack) {
-        //elements.push(<div className="step-container-center" style={{ width: "300px" }} key="headImage"> <img alt="thumbnail" src={pack.thumbUrl} /></div>)
+    if (infoPack) {
+        const { fileName, fileSize,
+            thumbUrl, bbox, statistic } = infoPack;
+
+        elements.push(
+            <Row className="step-container-center" key="headImage">
+                <Col span={1}></Col>
+                <Col span={8}><img alt="thumbnail" src={thumbUrl} /></Col>
+                <Col span={1}></Col>
+                <Col span={14}>
+                    {!!statistic && (<><Descriptions title={`${fileName}(${prettyFileSize(fileSize)}) 统计信息`} column={4} bordered>
+
+                        {statistic.map(({ layerId = "", polylineNum = 0, ringNum = 0, lineNum = 0, polylineHaveGapNum = 0 }) => (
+                            <>
+                                <Descriptions.Item label="层" span={4}>{layerId2NameDict[layerId]||layerId}</Descriptions.Item>
+                                <Descriptions.Item label="环线">{ringNum}</Descriptions.Item>
+                                <Descriptions.Item label="直线">{lineNum}</Descriptions.Item>
+                                <Descriptions.Item label="续线">{polylineHaveGapNum}</Descriptions.Item>
+                                <Descriptions.Item label="总数">{polylineNum}</Descriptions.Item>
+                            </>
+                        ))}
+                        </Descriptions>
+                        <p>【环线：首尾相连的线条】 【续线：中间有断点的线条】</p>
+                    </>)
+
+
+                    }
+                </Col>
+            </Row>)
+
+
         elements.push(<div key="materialSelection">
             <Divider orientation="left" style={{ fontSize: 20 }}>STEP1. 选择材料</Divider>
             <Alert className="step-container-left"
@@ -142,58 +179,80 @@ export default function PlanSelect({ visible, pack, handleCancel }) {
                 description="4mm厚椴木板促销 单价打9折."
                 type="info"
                 showIcon
+                closable
             />
-            <Row className="step-container-left">
+            <div className="step-container-left">
+
+                <TreeSelect
+                    style={{ width: '100%' }}
+                    value={statePlan}
+                    dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
+                    treeData={treeData}
+                    placeholder="请选择材料"
+                    treeDefaultExpandAll
+                    onChange={setPlan}
+                />
+
+
+                <div style={{ marginTop: 20 }}>
+                    <Space size={[10, 10]} wrap="true" >
+                        <Image className="image-item"
+                            src="https://www.cut-tec.co.uk/uploaded/thumbnails/db_file_img_3232_1024xauto.jpg"
+                        />
+                        <Image className="image-item"
+                            src="https://www.lasercompanysp.com.br/imagens/informacoes/corte-laser-mdf-01.jpg"
+                        />
+
+                        <Image className="image-item"
+                            src="http://lasercutsigns.co.uk/wp-content/uploads/2001/05/laser-cut-veneer-mdf-3.png"
+                        />
+                    </Space>
+
+
+                    {/*
+                    <Carousel autoplay>
+                        <div>
+                            <Image
+                                //height={340}
+                                src="https://www.cut-tec.co.uk/uploaded/thumbnails/db_file_img_3232_1024xauto.jpg"
+                            />
+
+                        </div>
+                        <div>
+                            <Image
+                                height={340}
+                                src="https://www.lasercompanysp.com.br/imagens/informacoes/corte-laser-mdf-01.jpg"
+                            />
+                        </div>
+                        <div>
+                            <Image
+                                height={340}
+                                src="http://lasercutsigns.co.uk/wp-content/uploads/2001/05/laser-cut-veneer-mdf-3.png"
+                            />
+                        </div>
+
+                    </Carousel>
+                
+                    */}
+
+
+                </div>
+
+            </div>
+
+            {/*
+                <Row className="step-container-left">
                 <Col span={2}>
                     <h3>选择：</h3>
                 </Col>
                 <Col span={22}>
-                    <TreeSelect
-                        style={{ width: '100%' }}
-                        value={statePlan}
-                        dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
-                        treeData={treeData}
-                        placeholder="请选择材料"
-                        treeDefaultExpandAll
-                        onChange={setPlan}
-                    />
-
-
-                    <div style={{ marginTop: 20 }}>
-                        <Carousel autoplay>
-                            <div>
-                                <Image
-                                    height={340}
-                                    src="https://www.cut-tec.co.uk/uploaded/thumbnails/db_file_img_3232_1024xauto.jpg"
-                                />
-
-                            </div>
-                            <div>
-                                <Image
-                                    height={340}
-                                    src="https://www.lasercompanysp.com.br/imagens/informacoes/corte-laser-mdf-01.jpg"
-                                />
-                            </div>
-                            <div>
-                                <Image
-                                    height={340}
-                                    src="http://lasercutsigns.co.uk/wp-content/uploads/2001/05/laser-cut-veneer-mdf-3.png"
-                                />
-                            </div>
-
-                        </Carousel>
-                    </div>
                 </Col>
-
-
             </Row>
-
-
+            */}
         </div>);
-    }
 
-    if (pack) {
-        const [min, max] = pack.bbox;
+
+        const [min, max] = bbox;
         const brdSize = { width: max[0] - min[0], height: max[1] - min[1] };
         elements.push(<div key="planSelection">
             <Divider orientation="left" style={{ fontSize: 20 }}>STEP2. 规划</Divider>
@@ -223,24 +282,15 @@ export default function PlanSelect({ visible, pack, handleCancel }) {
         </div>
     </div>);
 
-    elements.push(<div key="payment">
-        <Divider orientation="left" style={{ fontSize: 20 }}>STEP4. 支付</Divider>
-        <div className="step-container-center">haha</div>
-    </div>);
 
-
-
-    return <Drawer
-        title={`加工文件：${!!pack && pack.fileName}`}
+    return <Modal
+        title={"详情"/*(infoPack && infoPack.fileName) || "?"*/}
         width={1000}
-        onClose={handleCancel}
         visible={visible}
-        //bodyStyle={{ paddingBottom: 80 }}
-        placement="left"
-        mask={true}
-        //maskClosable={false}
-        //getContainer={false}
-        //style={{ position: 'absolute' }}
+        onOk={handleCancel}
+        onCancel={handleCancel}
+        //centered
+        style={{ top: 40 }}
         footer={
             <div
                 style={{
@@ -249,15 +299,44 @@ export default function PlanSelect({ visible, pack, handleCancel }) {
             >
                 <Button onClick={handleCancel} style={{ marginRight: 8 }}> Cancel </Button>
                 <Button onClick={handleCancel} type="primary"> Submit </Button>
-            </div>
-        }
+            </div>}
     >
 
-        <div style={{ overflow: "scroll" }}>
+        <div style={{ maxHeight: "600px", overflow: "scroll" }}>
             {elements}
         </div>
+    </Modal>;
+    /*
+        return <Drawer
+            title={`加工文件：${!!infoPack && fileName}`}
+            width={1000}
+            onClose={handleCancel}
+            visible={visible}
+            //bodyStyle={{ paddingBottom: 80 }}
+            placement="left"
+            mask={true}
+            //maskClosable={false}
+            //getContainer={false}
+            //style={{ position: 'absolute' }}
+            footer={
+                <div
+                    style={{
+                        textAlign: 'right',
+                    }}
+                >
+                    <Button onClick={handleCancel} style={{ marginRight: 8 }}> Cancel </Button>
+                    <Button onClick={handleCancel} type="primary"> Submit </Button>
+                </div>
+            }
+        >
+    
+            <div style={{ overflow: "scroll" }}>
+                {elements}
+            </div>
+    
+        </Drawer>
+    */
 
-    </Drawer>
 
 
 }

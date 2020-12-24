@@ -1,7 +1,7 @@
 
 .step-container-left {
     margin-top: 20px;
-    margin-left: 40px;
+    /*margin-left: 40px;*/
 }
 
 .step-container-center {
@@ -16,4 +16,6 @@
     margin-right: 20px;
 }
 
-
+.image-item {
+    width: 200px;
+}

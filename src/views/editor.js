@@ -1,8 +1,11 @@
 import React, { useState, useMemo, useCallback, useRef } from 'react'
 import { useHistory } from "react-router-dom";
 
-import { message, Spin, Button, Select, Space, Divider, Badge, Popconfirm, Row, Col } from 'antd';
-import { EyeInvisibleOutlined, EyeOutlined, MenuOutlined, SplitCellsOutlined, LayoutOutlined, GroupOutlined, BorderOutlined } from '@ant-design/icons';
+import { message, Spin, Button, Select, Space, Divider, Badge, Popconfirm, Row, Col, Tag } from 'antd';
+import {
+  EyeInvisibleOutlined, EyeOutlined, MenuOutlined, SplitCellsOutlined,
+  LayoutOutlined, GroupOutlined, BorderOutlined
+} from '@ant-design/icons';
 
 
 import {
@@ -28,6 +31,7 @@ import useSize from '../hooks/useSize'
 import SvgPanZoom from '../components/svgPanZoom'
 import Doc from '../components/doc'
 import SelectedList from '../components/selectedList'
+import FormConfig from '../components/formConfig'
 
 
 import 'antd/dist/antd.less';
@@ -104,6 +108,7 @@ function ViewEditor() {
   const [stateProgress, setStateProgress] = useState(null);
   const [stateWorkerInfo, setStateWorkerInfo] = useState(null);
   const [stateGraphs, setStateGraphs] = useState(null);
+  const [stateConfig, setStateConfig] = useState(null);
 
   //文档相关
   const [stateDoc, setStateDoc] = useState(null);
@@ -125,6 +130,14 @@ function ViewEditor() {
       process: (handle, { info }) => {
         if (!info) return;
         handle.setState(info);
+      }
+    },
+
+    config: {
+      setState: setStateConfig,
+      process: (handle, { config }) => {
+        if (!config) return;
+        handle.setState(config);
       }
     },
 
@@ -154,7 +167,7 @@ function ViewEditor() {
     editor: {
       //setState: setEditorValue,
       process: (handle, { editor }) => {
-        if(!editor)return;
+        if (!editor) return;
         let { svgPanZoomValue, isSaved, canUndo, canRedo } = editor;
 
         //console.log(svgPanZoomValue);
@@ -169,7 +182,6 @@ function ViewEditor() {
 
       }
     },
-
 
     graphs: {
       //state: stateGraphs,
@@ -199,7 +211,7 @@ function ViewEditor() {
 
       }
     },
-  }), [setStateWorkerInfo, setStateProgress, setStateGraphs, setEditorValue, setEditorTool]);
+  }), [setStateWorkerInfo, setStateProgress, setStateGraphs, setEditorValue, setEditorTool, setStateConfig]);
 
   //worker 启动  ！！！！
   const { command: workerCommand } = useShapeWorker(createWorker, workerStateHandles);
@@ -243,10 +255,7 @@ function ViewEditor() {
 
     return { setRefVisibility, setPolylineFocus, setPolylineBlink };
   }, [graphRefs]);
-
   Object.assign(glbTools, { setRefVisibility, setPolylineFocus, setPolylineBlink })
-
-
 
   const { setLayerHidden, setLayerTarget, setPolylineHidden, setPolylinesHidden } = useMemo(() => {
     const setLayerHidden = (layerId, isHidden) => {
@@ -385,9 +394,7 @@ function ViewEditor() {
 
     return { setLayerHidden, setLayerTarget, setPolylineHidden, setPolylinesHidden };
   }, [setStateGraphs]);
-
   Object.assign(glbTools, { setLayerHidden, setLayerTarget, setPolylineHidden, setPolylinesHidden })
-
 
   const { setLayerToTarget, onBboxSelect } = useMemo(() => {
     const setLayerToTarget = () => {
@@ -419,9 +426,7 @@ function ViewEditor() {
     };
     return { setLayerToTarget, onBboxSelect };
   }, [stateGraphs, workerCommand])
-
   Object.assign(glbTools, { setLayerToTarget, onBboxSelect })
-
 
   glbTools.workerCommand = (method, params) => workerCommand({ method, params });
   //glbTools.onScaleChange = setScaleLevel;
@@ -430,18 +435,16 @@ function ViewEditor() {
     //glbTools.workerCommand(_define.WORKER_METHOD.SAVE, { svgPanZoomValue: value });
     workerCommand({ method: _define.WORKER_METHOD.SAVE, params: { svgPanZoomValue: value } })
   };
-
   glbTools.onUndo = () => {
     //glbTools.workerCommand(_define.WORKER_METHOD.UNDO, {});
     workerCommand({ method: _define.WORKER_METHOD.UNDO, params: {} })
   };
-
   glbTools.onRedo = () => {
     //glbTools.workerCommand(_define.WORKER_METHOD.REDO, {});
     workerCommand({ method: _define.WORKER_METHOD.REDO, params: {} })
   };
 
-  const { deletePolyline, deletePolylines, deleteSelected } = useMemo(() => {
+  const { deletePolyline, deletePolylines, deleteSelected, isAnySelected } = useMemo(() => {
 
     //[{layerId, polylineId}]
     let deletePolylines = (lst) => {
@@ -456,23 +459,7 @@ function ViewEditor() {
 
     let deleteSelected = () => {
       let { layers } = stateGraphs;
-      /* 构造 对象  改为数组
-      //下面构造 params， {layerId: [polylineId1, ...], ...} 
-      let params = {};
-      for (let layerId in layers) {
-        params[layerId] = [];
-        let { polylineSet } = layers[layerId];
-        for (let polylineId in polylineSet) {
-          if (polylineSet[polylineId].selected) //从每一层 找出 selected 的线条
-            params[layerId].push(polylineId);
-        }
-        if (0 === params[layerId].length)
-          delete params[layerId];
-      }
-      if (Object.keys(params).length > 0)
-        //glbTools.workerCommand(_define.WORKER_METHOD.DELETE, params); //发布指令 删除线条
-        workerCommand({ method: _define.WORKER_METHOD.DELETE, params })
-      */
+
       //下面构造 params， [{layerId, polylineId1}, ...]
       let lst = [];
       for (let layerId in layers) {
@@ -486,13 +473,25 @@ function ViewEditor() {
         deletePolylines(lst);
     }
 
-    return { deletePolyline, deletePolylines, deleteSelected };
+    let isAnySelected = () => {
+      if (!stateGraphs || !stateGraphs.layers)
+        return false;
+
+      let { layers } = stateGraphs;
+      for (let layerId in layers) {
+        let { polylineSet } = layers[layerId];
+        for (let polylineId in polylineSet) {
+          if (polylineSet[polylineId].selected) //从每一层 找出 selected 的线条
+            return true;
+        }
+      }
+      return false;
+    }
+
+    return { deletePolyline, deletePolylines, deleteSelected, isAnySelected };
   }, [stateGraphs, workerCommand])
 
   Object.assign(glbTools, { deletePolylines, deletePolyline, deleteSelected })
-
-
-
 
   glbTools.onBorderSet = useCallback(
     () => {
@@ -515,9 +514,7 @@ function ViewEditor() {
     },
     [stateGraphs, workerCommand]);
 
-
   glbTools.onHelp = () => openDoc(toolsHelpPath);
-
 
   const { polylineSelect, polylinesSelect, onSvgClick, polylinePatch } = useMemo(() => {
 
@@ -670,13 +667,10 @@ function ViewEditor() {
             point: [svgX, svgY],
           };
 
-          //这里使用了 从worker传来的 info中的缺省断点参数，也可以不用，worker中会自动使用缺省的
-          //if (!!stateWorkerInfo)
-          //  params.gap = stateWorkerInfo.params.breakDefault;
-          if (stateGraphs.layers[layerId].polylineSet[polylineId].isClosed)
-            workerCommand({ method: _define.WORKER_METHOD.BREAK, params })
-          else
-            workerCommand({ method: _define.WORKER_METHOD.PATCH, params })
+          //if (stateGraphs.layers[layerId].polylineSet[polylineId].isClosed)
+          workerCommand({ method: _define.WORKER_METHOD.BREAK, params })
+          //else
+          //  workerCommand({ method: _define.WORKER_METHOD.PATCH, params })
 
         }
       }
@@ -692,12 +686,9 @@ function ViewEditor() {
       })
     }
     return { polylineSelect, polylinesSelect, onSvgClick, polylinePatch }
-  }, [setStateGraphs, workerCommand, stateGraphs])
+  }, [setStateGraphs, workerCommand]) //, stateGraphs
 
   Object.assign(glbTools, { polylineSelect, polylinesSelect, onSvgClick, polylinePatch })
-
-
-
 
   //未分配层结构 (隐藏 目标层等)输出，主要用途是 给旁边用来 做层面选取
   //uiLayersInfo 结构为 [{ layerId, hidden, layerTarget, isWellknown, layerOptions }] isWellknown:表示该层设定已经是知名层
@@ -712,17 +703,17 @@ function ViewEditor() {
       borderHasIssue
     };
 
-    let { layers: graphLayers, styles: graphStyles } = stateGraphs; //{thumbnail, bbox, styles, layers}
+    let { layers: graphLayers } = stateGraphs; //{thumbnail, bbox, styles, layers}
 
     //组织 uiLayersInfo
     for (let layerId in graphLayers) {
 
-      let isWellknown = !!graphStyles.layerBaseColor[layerId]; //检查是否知名层
+      let isWellknown = !!_define.LAYER_COLOR_WELLKNOWN[layerId]; //检查是否知名层
       //如果已经是 知名层，那就不用提取了
       if (!isWellknown) layerHasIssue = true;
 
       let { hidden, layerTarget } = graphLayers[layerId];
-      let layerOptions = Object.keys(graphStyles.layerBaseColor); //通过 配置范畴中的 layerBaseColor 字段找到所有支持的层
+      let layerOptions = Object.keys(_define.LAYER_COLOR_WELLKNOWN); //通过 配置范畴中的 layerBaseColor 字段找到所有支持的层
 
       uiLayersInfo.push({ layerId, hidden, layerTarget, layerOptions, isWellknown });
     }
@@ -787,133 +778,130 @@ function ViewEditor() {
 
   //根据 worker传回的图形元素数据 构造输出 svg元素
   //输出 缩略图url bbox的string def部分 主界面元素 
-  let { //thumbnailUrl, 
-    viewBoxStr, mainDefs, mainSvgGroups, borderPath } = useMemo(() => {
+  let { /*thumbnailUrl*/ viewBoxStr, mainDefs, mainSvgGroups, borderPath } = useMemo(() => {
 
-      if (!stateGraphs) return {
-        thumbnailUrl: config.UI.thumbnailUrlDefault,
-        viewBoxStr: config.UI.viewboxStrDefault,
-        mainDefs: null,
-        mainSvgGroups: null,
-        borderPath: null,
-      };
+    let configStyle = !!stateConfig ? stateConfig.current.STYLE : null;
 
-      let { thumbnail, bbox: graphBbox, styles: graphStyles, layers: graphLayers, border: graphBorderPathData } = stateGraphs;
+    if (!stateGraphs) return {
+      thumbnailUrl: config.UI.thumbnailUrlDefault,
+      viewBoxStr: config.UI.viewboxStrDefault,
+      mainDefs: null,
+      mainSvgGroups: null,
+      borderPath: null,
+    };
+    let { thumbnail, bbox: graphBbox, layers: graphLayers, border: graphBorderPathData } = stateGraphs;
 
-      //下面输出 四小龙
-      let thumbnailUrl = !!thumbnail ? createSvgURL(thumbnail) : config.UI.thumbnailUrlDefault;
+    //下面输出 四小龙
+    let thumbnailUrl = !!thumbnail ? createSvgURL(thumbnail) : config.UI.thumbnailUrlDefault;
 
-      let viewBoxStr = !!graphBbox ? prettyViewboxStr(graphBbox) : config.UI.viewboxStrDefault;
+    let viewBoxStr = !!graphBbox ? prettyViewboxStr(graphBbox) : config.UI.viewboxStrDefault;
 
+    let mainDefs = !!configStyle ? (<defs>
+      <pattern id="patternBorder" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
+        <path d="M0 0h2v2h-2z M2 2h2v2h-2z" fill="#fff200" />
+        <path d="M2 0h2v2h-2z M0 2h2v2h-2z" fill="#1d1d1d" />
+      </pattern>
+      <pattern id="patternGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+        <path d="M0 0h10v10h-10z" {...configStyle.background}></path>
+        <path d="M10 0V10H-10" {...configStyle.backgroundGrid}></path>
+      </pattern>
+      <marker id="markerVertex" orient="auto" refX="0.2" refY="0.2" markerUnits="strokeWidth" markerWidth="0.4" markerHeight="0.4" >
+        <circle cx="0.2" cy="0.2" r="0.2" {...configStyle.vertex} />
+      </marker>
+      <marker id="markerVertexEnd" orient="auto" refX="0.1" refY="0.1" markerUnits="strokeWidth" markerWidth="0.2" markerHeight="0.2" >
+        <circle cx="0.1" cy="0.1" r="0.1" {...configStyle.vertexEnd} />
+      </marker>
+      <marker id="markerArrowOnStart" orient="auto" refY="0" refX="0" markerUnits="strokeWidth">
+        <path d="M 2,0 l 4,-2, 0,4 z" strokeWidth="3" stroke="#f00"></path>
+      </marker>
+      <filter id="glow">
+        <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+        <feMerge>
+          <feMergeNode in="coloredBlur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+    </defs>) : null;
 
+    let mainSvgGroups = null;
+    //开始处理层面图形元素
+    if (!!graphLayers && !!configStyle) {
+      mainSvgGroups = [];
+      //let graphLayers = stateGraphs.layers;
 
-      let mainDefs = graphStyles ? (<defs>
-        <pattern id="patternBorder" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
-          <path d="M0 0h2v2h-2z M2 2h2v2h-2z" fill="#fff200" />
-          <path d="M2 0h2v2h-2z M0 2h2v2h-2z" fill="#1d1d1d" />
-        </pattern>
-        <pattern id="patternGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
-          <path d="M0 0h10v10h-10z" {...graphStyles.background}></path>
-          <path d="M10 0V10H-10" {...graphStyles.backgroundGrid}></path>
-        </pattern>
-        <marker id="markerVertex" orient="auto" refX="0.2" refY="0.2" markerUnits="strokeWidth" markerWidth="0.4" markerHeight="0.4" >
-          <circle cx="0.2" cy="0.2" r="0.2" {...graphStyles.vertex} />
-        </marker>
-        <marker id="markerVertexEnd" orient="auto" refX="0.1" refY="0.1" markerUnits="strokeWidth" markerWidth="0.2" markerHeight="0.2" >
-          <circle cx="0.1" cy="0.1" r="0.1" {...graphStyles.vertexEnd} />
-        </marker>
-        <marker id="markerArrowOnStart" orient="auto" refY="0" refX="0" markerUnits="strokeWidth">
-          <path d="M 2,0 l 4,-2, 0,4 z" strokeWidth="3" stroke="#f00"></path>
-        </marker>
-        <filter id="glow">
-          <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
-          <feMerge>
-            <feMergeNode in="coloredBlur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>) : null;
+      //根据 缩放等级调整 线条宽度
+      //styleStrokeWidthModify(configStyle, scaleLevel);
 
-      let mainSvgGroups = null;
-      //开始处理层面图形元素
-      if (!!graphLayers) {
-        mainSvgGroups = [];
-        //let graphLayers = stateGraphs.layers;
-        //let graphStyles = stateGraphs.styles;
+      //处理每一个层面
+      for (let layerId in graphLayers) {
+        let { hidden: currentLayerHidden, layerTarget: currentLayerTarget, polylineSet: currentLayerPolylineSet } = graphLayers[layerId];
 
-        //根据 缩放等级调整 线条宽度
-        //styleStrokeWidthModify(graphStyles, scaleLevel);
+        if (currentLayerHidden)//忽略隐藏的层面
+          continue;
 
-        //处理每一个层面
-        for (let layerId in graphLayers) {
-          let { hidden: currentLayerHidden, layerTarget: currentLayerTarget, polylineSet: currentLayerPolylineSet } = graphLayers[layerId];
-
-          if (currentLayerHidden)//忽略隐藏的层面
-            continue;
-
-          //将每根线条都放置到 <path> 或 <g> 标签中
-          let pathGroup = [];
-          for (let plylnId in currentLayerPolylineSet) {
-            let { path, gapPath, selected, hidden: currentPolylineHidden } = currentLayerPolylineSet[plylnId];
-            if (currentPolylineHidden) continue;
-            let wrapperBaseAttributes = {
-              key: plylnId, id: plylnId,
-              //onMouseEnter: (e) => handleMouseOver(e, true),
-              //onMouseLeave: (e) => handleMouseOver(e, false),
-              //onContextMenu: handleRightClickWrapper,
-              //onClick: handleClickWrapper,
-              ref: graphRefsFnGen(plylnId),
-              className: "svgPath"
-            }
-
-            let gapAttributes = graphStyles.polylineGaps;
-            //检查是否是选择的线条，若是除了应用 相应样式，同时加粗
-            let selectedWrapperAttributes = selected ? { ...graphStyles.polylineWrapperSelected, strokeWidth: 2 * graphStyles.polylineWrapper['strokeWidth'] } : {};
-            //if (selected) console.log(`selected: layerId: ${layerId} polylineId: ${plylnId}`);
-            let selectedPolylineAttributes = selected ? { ...graphStyles.polylinePathSelected } : {};
-
-
-            pathGroup.push(
-              /*  长时间不用 即可以删除
-              !!gapPath && gapPath.length > 0 ?
-                <g {...wrapperBaseAttributes}  {...selectedWrapperAttributes}> <path {...selectedPolylineAttributes} d={path} /><path {...gapAttributes} d={gapPath} /></g> :
-                <path {...wrapperBaseAttributes}  {...selectedWrapperAttributes} {...selectedPolylineAttributes} d={path} />
-              */
-              <g {...wrapperBaseAttributes}  {...selectedWrapperAttributes}> <path {...selectedPolylineAttributes} d={path} /><path {...gapAttributes} d={gapPath} /></g>
-
-            );
+        //将每根线条都放置到 <path> 或 <g> 标签中
+        let pathGroup = [];
+        for (let plylnId in currentLayerPolylineSet) {
+          let { path, gapPath, selected, hidden: currentPolylineHidden } = currentLayerPolylineSet[plylnId];
+          if (currentPolylineHidden) continue;
+          let wrapperBaseAttributes = {
+            key: plylnId, id: plylnId,
+            //onMouseEnter: (e) => handleMouseOver(e, true),
+            //onMouseLeave: (e) => handleMouseOver(e, false),
+            //onContextMenu: handleRightClickWrapper,
+            //onClick: handleClickWrapper,
+            ref: graphRefsFnGen(plylnId),
+            className: "svgPath"
           }
 
+          let gapAttributes = configStyle.polylineGaps;
+          //检查是否是选择的线条，若是除了应用 相应样式，同时加粗
+          let selectedWrapperAttributes = selected ? { ...configStyle.polylineWrapperSelected, strokeWidth: 2 * configStyle.polylineWrapper['strokeWidth'] } : {};
+          //if (selected) console.log(`selected: layerId: ${layerId} polylineId: ${plylnId}`);
+          let selectedPolylineAttributes = selected ? { ...configStyle.polylinePathSelected } : {};
 
-          //层样式 先设定配置基础
-          let layerStyle = Object.assign({}, graphStyles.polylineWrapper);
 
-          // 【暂时屏蔽】  红绿蓝 颜色实在不是很显眼
-          //若知名层 设定 颜色 
-          //if (!!graphStyles.layerBaseColor[layerId])
-          //  layerStyle.stroke = graphStyles.layerBaseColor[layerId];
+          pathGroup.push(
+            /*  长时间不用 即可以删除
+            !!gapPath && gapPath.length > 0 ?
+              <g {...wrapperBaseAttributes}  {...selectedWrapperAttributes}> <path {...selectedPolylineAttributes} d={path} /><path {...gapAttributes} d={gapPath} /></g> :
+              <path {...wrapperBaseAttributes}  {...selectedWrapperAttributes} {...selectedPolylineAttributes} d={path} />
+            */
+            <g {...wrapperBaseAttributes}  {...selectedWrapperAttributes}> <path {...selectedPolylineAttributes} d={path} /><path {...gapAttributes} d={gapPath} /></g>
 
-          //若设定target 设定 虚线
-          if (!!currentLayerTarget) {
-            layerStyle.strokeDasharray = "5,1";
-            //若是知名层 也设定颜色
-            if (!!graphStyles.layerBaseColor[currentLayerTarget]) {
-              layerStyle.stroke = graphStyles.layerBaseColor[currentLayerTarget];
-            }
-          }
-
-          //transform='scale(1,-1)'
-          mainSvgGroups.push(<g {...layerStyle} key={layerId} id={layerId} ref={graphRefsFnGen(layerId)}>{pathGroup}</g>);
+          );
         }
-        //复原 线条宽度
-        //styleStrokeWidthRestore(graphStyles);
+
+
+        //层样式 先设定配置基础
+        let layerStyle = Object.assign({}, configStyle.polylineWrapper);//浅复制就够了 注意
+
+        // 【暂时屏蔽】  红绿蓝 颜色实在不是很显眼
+        //若知名层 设定 颜色 
+        //if (!!configStyle.layerBaseColor[layerId])
+        //  layerStyle.stroke = configStyle.layerBaseColor[layerId];
+
+        //若设定target 设定 虚线
+        if (!!currentLayerTarget) {
+          layerStyle.strokeDasharray = "5,1";
+          //若是知名层 也设定颜色
+          if (!!configStyle.layerBaseColor[currentLayerTarget]) {
+            layerStyle.stroke = configStyle.layerBaseColor[currentLayerTarget];
+          }
+        }
+
+        //transform='scale(1,-1)'
+        mainSvgGroups.push(<g {...layerStyle} key={layerId} id={layerId} ref={graphRefsFnGen(layerId)}>{pathGroup}</g>);
       }
+      //复原 线条宽度
+      //styleStrokeWidthRestore(configStyle);
+    }
 
-      let borderPath = graphBorderPathData ? <path d={graphBorderPathData} fill={graphStyles.borderArea.fill} /> : null;
+    let borderPath = graphBorderPathData ? <path d={graphBorderPathData} fill={!!configStyle ? configStyle.borderArea.fill : "none"} /> : null;
 
-      return { thumbnailUrl, viewBoxStr, mainDefs, mainSvgGroups, borderPath }
-    },
-      [stateGraphs]); //依赖 worker的graph , scaleLevel
+    return { thumbnailUrl, viewBoxStr, mainDefs, mainSvgGroups, borderPath }
+  },
+    [stateGraphs, stateConfig]); //依赖 worker的graph , config.current.STYLE
 
 
   const { setFitBox } = useMemo(() => {
@@ -957,6 +945,7 @@ function ViewEditor() {
     editorValue: editorValue,
     onChangeEditorTool: setPanZoomTool,
     onChangeEditorValue: setEditorValue,
+    isAnySelected: isAnySelected(),
   };
   let issueNum = 0;
   if (layerHasIssue) issueNum++;
@@ -1030,20 +1019,67 @@ function ViewEditor() {
   </Space>
   );
 
-  let polylineViewContent = <SelectedList glbTools={glbTools} stateGraphs={stateGraphs} />;
+  let polylineViewContent = <SelectedList glbTools={glbTools} stateGraphs={stateGraphs} stateConfig={stateConfig} />;
+
+
+  //配置界面
+  const setConfig = (current, global) => {
+    //console.log("setConfig!!!", current, global); 
+    workerCommand({ method: _define.WORKER_METHOD.CONFIG, params: { current, global } })
+  }
+  let configGlobalView = stateConfig ? <FormConfig
+    description={"tips: 全局设置应用于所有的图纸上"}
+    schema={stateConfig.globalSchema}
+    uiSchema={stateConfig.globalUISchema}
+    value={stateConfig.global}
+    defaultValue={stateConfig.globalDefault}
+    saveValue={(glb) => {
+      setConfig(null, glb);
+      //setStateConfig(cfg => Object.assign({}, cfg, { global: glb }));
+    }} /> : null;
+  let configCurrentView = stateConfig ? <FormConfig
+    description={"tips: 图纸设置仅应用于当前图纸，随图纸保存"}
+    schema={stateConfig.currentSchema}
+    uiSchema={stateConfig.currentUISchema}
+    value={stateConfig.current}
+    defaultValue={stateConfig.currentDefault}
+    saveValue={(cur) => {
+      setConfig(cur, null);
+      //setStateConfig(cfg => Object.assign({}, cfg, { current: cur }))
+    }} /> : null;
 
   const waitContent = <Spin style={{ marginTop: "100px", display: "block" }} size="large" />;
 
   let isLoaded = !!stateGraphs;
 
   let layoutAttributes = {
-    goBack: () => history.goBack(),
-    title: isLoaded ? `${stateWorkerInfo.fileName} ` : ``,
-    subTitle: isLoaded ? `(${prettyFileSize(stateWorkerInfo.fileSize)})` : ``,
+    goBack: () => { //退出当前界面
+      history.goBack();
+      /*
+      if (!editorTool.isSaved) {
+        Modal.confirm({
+          centered: true,
+          icon: <ExclamationCircleOutlined />, maskClosable: true,
+          title: '尚未保存，确定退出吗?', 
+          okText: '不保存', okType: 'danger', onOk: () => { history.goBack(); },
+          CancelText: '取消', onCancel: () => { }
+        })
+        //glbTools.onSave(null, null);
+      }
+      else {
+        history.goBack();
+      }
+      */
+    },
+    title: (isLoaded && `${stateWorkerInfo.fileName}`) || ``,
+    subTitle: (isLoaded && `(${prettyFileSize(stateWorkerInfo.fileSize)})`) || ``,
+    tags: isLoaded && (!editorTool.isSaved) && <Tag color="red">未保存</Tag>,
     issueNum,
     mainView: isLoaded ? mainViewContent : waitContent,
     layerBorderView: isLoaded ? layerBorderViewContent : waitContent,
     polylineView: isLoaded ? polylineViewContent : waitContent,
+    configGlobalView,
+    configCurrentView,
     utilView: <Doc {...stateDoc} />,
   }
   if (!!stateProgress)

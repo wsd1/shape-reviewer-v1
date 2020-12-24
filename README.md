@@ -252,6 +252,8 @@ worker是另一个项目，其中所有的图形处理都在其中，其被build
 
 ### 关于 大型数据结构 在react中 hook管理状态的说明
 
+要点：状态管理 主要在 editor.js 
+
 第一次做react的项目，懵懵懂懂开始设计，重构，再重构，慢慢的对 react环境下的各种工具有了深入的把握。
 
 在 editor.js 的 ViewEditor()函数中，我构造了不少的 state。这些 state 皆来自于 worker 发回消息中的各种片段，有的大有的小。
@@ -366,6 +368,20 @@ https://github.com/probablyup/markdown-to-jsx
 ```
 
 
+
+### JSON自动表单生成
+
+使用了一个很爽的lib：react-jsonschema-form
+能想到的功能全都有了（而且直接支持antd）。目前将其使用在config配置系统中，可以实现：
+1、JSON schema、 UISchema
+2、数据提供做 缺省值
+
+
+https://github.com/rjsf-team/react-jsonschema-form
+
+安装：
+
+  yarn add @rjsf/core @rjsf/antd 
 
 ## 各种资源整理
 

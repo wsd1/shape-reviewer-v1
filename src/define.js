@@ -17,6 +17,7 @@ const _define = {
         PATCH: 'PATCH',
         SAVE: 'SAVE',
         LOAD: 'LOAD',
+        CONFIG: 'CONFIG',
         UNDO: 'UNDO',
         REDO: 'REDO',
         SET_LAYER: 'SET_LAYER',

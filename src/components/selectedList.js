@@ -29,7 +29,7 @@ const layerId2Name = (id) => {
 
 
 
-export default function SelectedList({ glbTools, stateGraphs }) {
+export default function SelectedList({ glbTools, stateGraphs, stateConfig }) {
 
     //polylineList 结构为 [{layerId, polylineId, layerColor, bbox, isClosed, selected, hidden, length, vertexNum, gapNum},...]
     let { polylineList, layerNames } = useMemo(() => {
@@ -39,7 +39,8 @@ export default function SelectedList({ glbTools, stateGraphs }) {
             polylineList, layerNames
         };
 
-        let { layers: graphLayers, styles: graphStyles } = stateGraphs; //{thumbnail, bbox, styles, layers}
+        let { layers: graphLayers } = stateGraphs; //{thumbnail, bbox, styles, layers}
+        let configStyle = !!stateConfig ? stateConfig.current.STYLE : null;
 
         layerNames = Object.keys(graphLayers);
 
@@ -48,14 +49,14 @@ export default function SelectedList({ glbTools, stateGraphs }) {
             let { polylineSet } = graphLayers[layerId];
             for (let polylineId in polylineSet) {
                 let { selected, hidden, gapNum, isClosed, length, vertexNum, bbox } = polylineSet[polylineId];
-                let layerColor = graphStyles.layerBaseColor[layerId] || null;
+                let layerColor = configStyle? configStyle.layerBaseColor[layerId] : null;
                 polylineList.push({ key: polylineId, layerId, polylineId, layerColor, selected, hidden, gapNum, isClosed, length, vertexNum, bbox });
             }
         }
         //polylineList.sort((a,b)=>(a.length-b.length)); //按长度排个序，列表不会乱跳
 
         return { polylineList, layerNames };
-    }, [stateGraphs]);
+    }, [stateGraphs, stateConfig]);
 
 
 
@@ -185,7 +186,7 @@ export default function SelectedList({ glbTools, stateGraphs }) {
             },
             filters: [
                 { text: '无断点', value: '<1' },
-                { text: '有端点', value: '>=1' },
+                { text: '有断点', value: '>=1' },
             ],
 
             sorter: (a, b) => a.gapNum - b.gapNum,
@@ -250,7 +251,7 @@ export default function SelectedList({ glbTools, stateGraphs }) {
         dataSource={polylineList}
         onChange={onChange}
         //pagination={{ pageSize: 30 }}
-        scroll={{ x: 600, y: 600 }}//
+        scroll={{ x: 600, y: 800 }}//
         onRow={record => ({
             onClick: event => { }, // 点击行
             onDoubleClick: event => { },

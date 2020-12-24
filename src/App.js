@@ -23,11 +23,14 @@ function App() {
       window.grecaptcha
         .execute(config.recapcha.site_key, { action: "homepage" })
         .then(token => {
-          //console.log(`recaptcha: action "homepage_shape_reviewer_v1" => ${token}`);
+          console.log(`recaptcha: action "homepage_shape_reviewer_v1" => {token}`);
         });
       //隐藏badge
       const element = document.querySelector(".grecaptcha-badge");
-      if (element) element.style.display = "none";
+      if (element){ 
+        element.style.display = "none";
+        //console.log("这里这里！！！");
+      }
 
     });
   }, []);
