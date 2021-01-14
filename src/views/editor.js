@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef } from 'react'
 import { useHistory } from "react-router-dom";
 
-import { message, Spin, Button, Select, Space, Divider, Badge, Popconfirm, Row, Col, Tag } from 'antd';
+import { message, Spin, Button, Select, Space, Divider, Badge, Popconfirm, Row, Col, Tag, Slider, Switch } from 'antd';
 import {
   EyeInvisibleOutlined, EyeOutlined, MenuOutlined, SplitCellsOutlined,
   LayoutOutlined, GroupOutlined, BorderOutlined
@@ -11,7 +11,7 @@ import {
 import {
   fitSelection,
   INITIAL_VALUE,
-  TOOL_AUTO, TOOL_SELECT, TOOL_CUT, ACTION_SELECT
+  TOOL_AUTO, TOOL_SELECT, TOOL_CUT, TOOL_TAG, ACTION_SELECT
 } from 'react-svg-pan-zoom';
 
 import useShapeWorker from '../hooks/useShapeWorker'
@@ -22,7 +22,8 @@ import {
   //verticesBbox,
   //mirrorVertical,
   prettyFileSize,
-  getPathFromPublic
+  getPathFromPublic,
+  debounce,
 } from '../lib/util'
 
 
@@ -42,6 +43,8 @@ import LayoutEditor from '../layouts/layoutEditor'
 
 const toolsHelpPath = getPathFromPublic("editorTools.md");
 const issueHelpPath = getPathFromPublic("editorIssues.md");
+
+const tagDefault = { centerX: 0, centerY: 0, rotation: 0, width: 25, height: 5 }
 
 
 const layerId2NameDict = {
@@ -444,7 +447,7 @@ function ViewEditor() {
     workerCommand({ method: _define.WORKER_METHOD.REDO, params: {} })
   };
 
-  const { deletePolyline, deletePolylines, deleteSelected, isAnySelected } = useMemo(() => {
+  const { deletePolyline, deletePolylines, deleteSelected, exportPolylines, isAnySelected, onBorderSet } = useMemo(() => {
 
     //[{layerId, polylineId}]
     let deletePolylines = (lst) => {
@@ -473,6 +476,33 @@ function ViewEditor() {
         deletePolylines(lst);
     }
 
+    //[{layerId, polylineId}]
+    let exportPolylines = (lst) => {
+      if (!lst || lst.length === 0) return;
+
+      let { bbox: graphBbox, layers: graphLayers } = stateGraphs; //{thumbnail, bbox, styles, layers}
+      let viewBoxStr = prettyViewboxStr(graphBbox);
+
+      let pathes = lst.map(({ layerId, polylineId }) => {
+        let { polylineSet: currentLayerPolylineSet } = graphLayers[layerId];
+        let { path } = currentLayerPolylineSet[polylineId];
+        return `<path d="${path}" />`
+      })
+
+      let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBoxStr}"><g fill="none" stroke="black" stroke-width="0.2">${pathes.join('')}</g></svg>`
+
+      const contentType = 'image/svg+xml;charset=utf-8';
+      var blob = new Blob([out], { type: contentType }),
+        e = document.createEvent('MouseEvents'),
+        a = document.createElement('a')
+      a.download = 'exported.svg';
+      a.href = window.URL.createObjectURL(blob)
+      a.dataset.downloadurl = [contentType, a.download, a.href].join(':')
+      e.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null)
+      a.dispatchEvent(e)
+
+    };
+
     let isAnySelected = () => {
       if (!stateGraphs || !stateGraphs.layers)
         return false;
@@ -488,13 +518,7 @@ function ViewEditor() {
       return false;
     }
 
-    return { deletePolyline, deletePolylines, deleteSelected, isAnySelected };
-  }, [stateGraphs, workerCommand])
-
-  Object.assign(glbTools, { deletePolylines, deletePolyline, deleteSelected })
-
-  glbTools.onBorderSet = useCallback(
-    () => {
+    let onBorderSet = () => {
       let { layers } = stateGraphs;
       //下面构造 params， {layerId: [polylineId1, ...], ...} 
       let params = {};
@@ -511,12 +535,37 @@ function ViewEditor() {
       //什么都不选 调用该方法 将使用所有线条的 bbox 计算 边框
       //if (Object.keys(params).length > 0)
       workerCommand({ method: _define.WORKER_METHOD.SET_BORDER, params })
-    },
-    [stateGraphs, workerCommand]);
+    }
+
+    return { deletePolyline, deletePolylines, deleteSelected, exportPolylines, isAnySelected, onBorderSet };
+  }, [stateGraphs, workerCommand])
+  Object.assign(glbTools, { deletePolylines, deletePolyline, deleteSelected, exportPolylines, onBorderSet })
+
+  const { tagSetRotation_debounce, tagRemove } = useMemo(() => {
+
+    let tagSetRotation = (rotation) => {
+      if (!stateWorkerInfo) return;
+
+      let params = Object.assign({}, stateWorkerInfo.tag || tagDefault, { rotation });
+      workerCommand({ method: _define.WORKER_METHOD.SET_TAG, params });   //{ centerX, centerY, width, height, rotation }
+    }
+
+    let tagSetRotation_debounce = debounce(tagSetRotation, 200);
+
+    let tagRemove = () => {
+      workerCommand({ method: _define.WORKER_METHOD.SET_TAG, params: null });   //{ centerX, centerY, width, height, rotation }
+    }
+
+
+    return { tagSetRotation, tagSetRotation_debounce, tagRemove };
+  }, [stateWorkerInfo, workerCommand])
+
+
+
 
   glbTools.onHelp = () => openDoc(toolsHelpPath);
-
   const { polylineSelect, polylinesSelect, onSvgClick, polylinePatch } = useMemo(() => {
+
 
     const polylineSelect = (layerId, polylineId, val) => {
       setStateGraphs(stateGraphsOld => {
@@ -583,12 +632,26 @@ function ViewEditor() {
       })
     };
 
+    const tagSetPosition = (x, y) => {
+      if (!stateWorkerInfo) return;
+      let params = Object.assign({}, stateWorkerInfo.tag || tagDefault, { centerX: x, centerY: y });
+      workerCommand({ method: _define.WORKER_METHOD.SET_TAG, params });   //{ centerX, centerY, width, height, rotation }
+    }
+
+
     // viewerMouseEvent 定义如下：
     //{SVGViewer: svgDomNode, originalEvent, value, x, y, scaleFactor, translationX, translationY}
     const onSvgClick = (viewerMouseEvent, tool) => {
 
       let { originalEvent: event, x: svgX, y: svgY, value: panZoomValue } = viewerMouseEvent;
       //event.preventDefault();
+
+      //y方向翻转 放在比较早的位置
+      if (!stateConfig) return; //必须依赖其中的 YFlip 参数
+      if(stateConfig.global.EDITOR.YFlip) svgY *= -1;
+
+
+
 
       //select 工具会在 拖拽选择之后 释放一个click事件，这里通过最近的value中记录判断之前是否拖拽
       //console.dir(panZoomValue);
@@ -597,7 +660,11 @@ function ViewEditor() {
         panZoomValue.startY !== panZoomValue.endY &&
         panZoomValue.lastAction === ACTION_SELECT)
         return;
-
+      else if (TOOL_TAG === tool) {
+        //console.log(`Click with ${tool} on polyline:${polylineId}@${layerId}, position:[${svgX},${svgY}]`);
+        tagSetPosition(svgX, svgY);
+        return;
+      }
 
       let domElement = event.target;
       //console.log(`OnSVGClick:[${svgX},${svgY}]`);
@@ -609,6 +676,7 @@ function ViewEditor() {
       let layerId = '', polylineId = '';
       polylineId = domElement.id;
       layerId = domElement.parentElement.id;
+
       //如果path没有id，那么可能是在外围 g 标签内
       if ('' === polylineId) {
         polylineId = domElement.parentElement.id;
@@ -622,8 +690,8 @@ function ViewEditor() {
         polylineId = layerId = '';
       }
 
-      //空点
-      if ('' === polylineId) {
+
+      if ('' === polylineId) {  //空点
         if (TOOL_SELECT === tool || TOOL_AUTO === tool || TOOL_CUT === tool) {
           //清理所有的选择线条的 selected 属性
           setStateGraphs(stateGraphsOld => {
@@ -647,17 +715,13 @@ function ViewEditor() {
         }
       }
 
-
-
-      //点击到线条
-      else {
+      else {  //点击到线条
         //console.log(`onclick layerId: ${layerId} polylineId: ${polylineId}`);
         if (TOOL_SELECT === tool || TOOL_AUTO === tool) {
           //切换线条的选择状态
           polylineSelect(layerId, polylineId);
 
         }
-
         else if (TOOL_CUT === tool) {
           //console.log(`Click with ${tool} on polyline:${polylineId}@${layerId}, position:[${svgX},${svgY}]`);
 
@@ -670,9 +734,10 @@ function ViewEditor() {
           //if (stateGraphs.layers[layerId].polylineSet[polylineId].isClosed)
           workerCommand({ method: _define.WORKER_METHOD.BREAK, params })
           //else
-          //  workerCommand({ method: _define.WORKER_METHOD.PATCH, params })
+          //  workerCommand({ method: _define.WORKER_METHOD.PATCH, params })  //打补丁逻辑
 
         }
+
       }
 
     };
@@ -686,9 +751,11 @@ function ViewEditor() {
       })
     }
     return { polylineSelect, polylinesSelect, onSvgClick, polylinePatch }
-  }, [setStateGraphs, workerCommand]) //, stateGraphs
-
+  }, [setStateGraphs, stateWorkerInfo, stateConfig, workerCommand]) //, stateGraphs 
   Object.assign(glbTools, { polylineSelect, polylinesSelect, onSvgClick, polylinePatch })
+
+
+
 
   //未分配层结构 (隐藏 目标层等)输出，主要用途是 给旁边用来 做层面选取
   //uiLayersInfo 结构为 [{ layerId, hidden, layerTarget, isWellknown, layerOptions }] isWellknown:表示该层设定已经是知名层
@@ -778,7 +845,7 @@ function ViewEditor() {
 
   //根据 worker传回的图形元素数据 构造输出 svg元素
   //输出 缩略图url bbox的string def部分 主界面元素 
-  let { /*thumbnailUrl*/ viewBoxStr, mainDefs, mainSvgGroups, borderPath } = useMemo(() => {
+  let { /*thumbnailUrl*/ viewBoxStr, mainDefs, mainSvgGroups, borderPath, tagPath } = useMemo(() => {
 
     let configStyle = !!stateConfig ? stateConfig.current.STYLE : null;
 
@@ -788,8 +855,9 @@ function ViewEditor() {
       mainDefs: null,
       mainSvgGroups: null,
       borderPath: null,
+      tagPath: null
     };
-    let { thumbnail, bbox: graphBbox, layers: graphLayers, border: graphBorderPathData } = stateGraphs;
+    let { thumbnail, bbox: graphBbox, layers: graphLayers, border: graphBorderPathData, tag: graphTagPathData } = stateGraphs;
 
     //下面输出 四小龙
     let thumbnailUrl = !!thumbnail ? createSvgURL(thumbnail) : config.UI.thumbnailUrlDefault;
@@ -799,7 +867,11 @@ function ViewEditor() {
     let mainDefs = !!configStyle ? (<defs>
       <pattern id="patternBorder" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
         <path d="M0 0h2v2h-2z M2 2h2v2h-2z" fill="#fff200" />
-        <path d="M2 0h2v2h-2z M0 2h2v2h-2z" fill="#1d1d1d" />
+        <path d="M2 0h2v2h-2z M0 2h2v2h-2z" fill="#2d2d2d" />
+      </pattern>
+      <pattern id="patternInner" x="0" y="0" width="1" height="5" patternUnits="userSpaceOnUse">
+        <path d="M0 0h0.5v5h-0.5z" fill="#fff200" />
+        <path d="M0.5 0h0.5v5h-0.5z" fill="#2d2d2d" />
       </pattern>
       <pattern id="patternGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
         <path d="M0 0h10v10h-10z" {...configStyle.background}></path>
@@ -897,9 +969,15 @@ function ViewEditor() {
       //styleStrokeWidthRestore(configStyle);
     }
 
-    let borderPath = graphBorderPathData ? <path d={graphBorderPathData} fill={!!configStyle ? configStyle.borderArea.fill : "none"} /> : null;
+    let borderPath = graphBorderPathData ?
+      <path d={graphBorderPathData} fill={!!configStyle ? configStyle.borderArea.fill : "none"} />
+      : null;
+    let tagPath = graphTagPathData ?
+      <path d={graphTagPathData} fill={"#fff200"} opacity={0.8}/>
+      : null;
 
-    return { thumbnailUrl, viewBoxStr, mainDefs, mainSvgGroups, borderPath }
+
+    return { thumbnailUrl, viewBoxStr, mainDefs, mainSvgGroups, borderPath, tagPath }
   },
     [stateGraphs, stateConfig]); //依赖 worker的graph , config.current.STYLE
 
@@ -957,6 +1035,7 @@ function ViewEditor() {
         {mainDefs}
         {mainSvgGroups}
         {borderPath}
+        {tagPath}
       </svg>
     </SvgPanZoom>
   </>);
@@ -965,7 +1044,7 @@ function ViewEditor() {
 
 
   //  <img className="side-thumbnail-img" width={250} alt="thumbnail" src={thumbnailUrl} />
-
+  let tagIsActive = (!!stateWorkerInfo) && (!!stateWorkerInfo.tag);
   //  <Badge status={layerHasIssue?"error":"success"} />
   let layerBorderViewContent = (<Space direction="vertical">
 
@@ -1015,6 +1094,34 @@ function ViewEditor() {
       <h2>边框：</h2>
       <p><Badge status={borderHasIssue ? "error" : "success"}><BorderOutlined /></Badge>    {borderHasIssue ? "尚未设定边框" : "边框已经设定"}</p>
     </>
+
+    <>
+      <h2>编码标签：</h2>
+
+      <Row>
+        <Col span={6} style={{ marginTop: 6 }}>{tagIsActive?"标签使能":"标签移除"}</Col>
+
+        <Col span={4} style={{ marginTop: 6 }}>
+          <Switch size="small" checked={tagIsActive} disabled={!tagIsActive} onChange={(enable) => {
+            if (!enable) tagRemove();
+          }} />
+        </Col>
+        {tagIsActive ? <>
+          <Col span={4} style={{ marginTop: 7 }} >角度</Col>
+          <Col span={10} >
+
+            <Slider max={180} min={0} defaultValue={0} step={30} marks={{0: '0°', 90: '90°', 180: '180°'}}
+              value={stateWorkerInfo.tag.rotation}
+              disabled={!tagIsActive} onChange={rotation => {tagSetRotation_debounce(rotation)}} />
+          </Col>
+        </> :
+          <Col span={14} style={{ marginTop: 7}} > (用标签工具在图纸上标定)
+          </Col>
+        }
+      </Row>
+
+    </>
+
 
   </Space>
   );
@@ -1089,5 +1196,17 @@ function ViewEditor() {
     <LayoutEditor {...layoutAttributes} />
   </div>)
 }
+
+/*
+function IconTag({ style }) {
+  return (
+      <svg {...style} viewBox={'0 0 24 24'} fill="currentColor">
+        <path
+          d="M2,6H4V18H2V6M5,6H6V18H5V6M7,6H10V18H7V6M11,6H12V18H11V6M14,6H16V18H14V6M17,6H20V18H17V6M21,6H22V18H21V6Z" />
+      </svg>
+  );
+}
+*/
+
 
 export default ViewEditor;

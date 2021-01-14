@@ -7,10 +7,11 @@ import { withTheme } from '@rjsf/core';
 import { Theme as AntDTheme } from '@rjsf/antd';
 
 import ColorWidget from './rjsf/colorWidget';
+//import RangeWidget from './rjsf/rangeWidget';
 import FieldTemplate from './rjsf/fieldTemplate';
 
 //重写 ColorWidget, 原来的有错。参考：https://github.com/rjsf-team/react-jsonschema-form/blob/master/packages/antd/src/widgets/ColorWidget/index.js
-Object.assign(AntDTheme.widgets, { ColorWidget });
+Object.assign(AntDTheme.widgets, { ColorWidget}); //, RangeWidget
 
 //缺省的 antd  theme很丑，而且还没有description的渲染，所以重写 field 渲染，参见：https://react-jsonschema-form.readthedocs.io/en/latest/advanced-customization/custom-templates/
 Object.assign(AntDTheme, { FieldTemplate });

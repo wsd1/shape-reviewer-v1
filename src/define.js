@@ -13,7 +13,7 @@ const _define = {
         PARSE_DXF: 'PARSE_DXF',
         SELECT: 'SELECT',
         DELETE: 'DELETE',
-        BREAK: 'BREAK',
+        BREAK: 'BREAK', //RECTILINEAR
         PATCH: 'PATCH',
         SAVE: 'SAVE',
         LOAD: 'LOAD',
@@ -22,6 +22,7 @@ const _define = {
         REDO: 'REDO',
         SET_LAYER: 'SET_LAYER',
         SET_BORDER: 'SET_BORDER',
+        SET_TAG: 'SET_TAG',
         STATISTIC: 'STATISTIC',
     },
 

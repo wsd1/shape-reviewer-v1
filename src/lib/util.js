@@ -125,3 +125,11 @@ export function stringWidth(str) {
             l += 1.0;
     return parseInt(l);
 }
+
+export function debounce(fn, delay) {
+    let timer = null;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => { fn.apply(this, args); }, delay);
+    };
+};

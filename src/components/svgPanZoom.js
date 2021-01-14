@@ -59,7 +59,7 @@ function SvgPanZoom({ viewSize, glbTools, children, editorTool, editorValue, onC
                 onHelp: glbTools.onHelp,
                 SVGAlignX: 'center',
                 SVGAlignY: 'center',
-                isSaved, canUndo, canRedo, 
+                isSaved, canUndo, canRedo,
                 canDelete: isAnySelected
             }}
             onClick={glbTools.onSvgClick}

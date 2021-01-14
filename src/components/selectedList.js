@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react'
 
 import { Table, Button, Checkbox, Space, Divider, Popconfirm } from 'antd';
 import {
-    EyeOutlined, EyeInvisibleOutlined, BorderOutlined,
+    EyeOutlined, EyeInvisibleOutlined, BorderOutlined, SaveOutlined,
     RadiusBottomleftOutlined, DeleteOutlined, MinusOutlined,
     ShrinkOutlined, CheckSquareOutlined, MinusSquareOutlined
 } from '@ant-design/icons';
@@ -49,7 +49,7 @@ export default function SelectedList({ glbTools, stateGraphs, stateConfig }) {
             let { polylineSet } = graphLayers[layerId];
             for (let polylineId in polylineSet) {
                 let { selected, hidden, gapNum, isClosed, length, vertexNum, bbox } = polylineSet[polylineId];
-                let layerColor = configStyle? configStyle.layerBaseColor[layerId] : null;
+                let layerColor = configStyle ? configStyle.layerBaseColor[layerId] : null;
                 polylineList.push({ key: polylineId, layerId, polylineId, layerColor, selected, hidden, gapNum, isClosed, length, vertexNum, bbox });
             }
         }
@@ -306,6 +306,9 @@ export default function SelectedList({ glbTools, stateGraphs, stateConfig }) {
                         }}>
                         <Button type="circle" danger disabled={selectedItems.length === 0} > <DeleteOutlined /> </Button>
                     </Popconfirm>
+                    <Button type="circle" disabled={selectedItems.length === 0} onClick={() => {
+                        glbTools.exportPolylines(selectedItems.map(({ layerId, polylineId }) => ({ layerId, polylineId })));
+                    }}> <SaveOutlined /> </Button>
 
                 </Space>
                 <Divider type="vertical" />
@@ -327,3 +330,6 @@ export default function SelectedList({ glbTools, stateGraphs, stateConfig }) {
     />
 
 }
+
+
+
